@@ -1,0 +1,88 @@
+Action Replay fast loader/saver protocols
+=========================================
+
+Documented by Ingo Korb
+
+Note 1: This document is currently incomplete, many of the loaders
+supported by the AR6 are missing.
+
+Note 2: The contents of this document have been tested only on a PAL
+system, because the author currently has no NTSC Action Replay
+cartridge.
+
+Note 3: An Action Replay 6 cartridge has been used as reference, other
+versions may or may not use different fast loaders.
+
+1541 fastloader
+---------------
+The default 1541 fast loader is a track loader that does the file name
+matching on the C64 instead of the drive. It has not been further
+analyzed due to this limitation.
+
+1581 fastloader
+---------------
+The 1581 fastloader opens the target file on secondary address 0 to
+read the start address. When the loader is uploaded, it will pull the
+clock line low and the data line high to signal that it's currently
+busy processing. It is recommended to add a short delay (one
+millisecond is sufficient) at this point because the C64 will miss the
+drive becoming ready if the time between M-E and the first byte
+transmission is too short.
+
+Bytes are transmitted according to this timing, synchronized by the
+low-to-high transision of the data line initated by the C64:
+
+   Time  Clock Data
+   ----------------
+    0us    1   0->1 (timing reference)
+    5us    b0   b1
+   13us    b2   b3
+   21us    b4   b5
+   29us    b6   b7
+ 37.5us    0    1
+  ~47us    0    1   (bus settle delay)
+
+Each sector of the file is transferred by sending the number of valid
+bytes in the current sector (i.e. 254 for a full sector or the second
+byte minus one for the last one on a D64-style disk) followed by the
+data bytes of the sector in forward order.
+
+After transmitting the last sector a single byte with value 0 is sent
+to the computer to mark the end of the transmission. There is no way
+to signal read errors to the computer. The computer will send a
+command to close the file itself.
+
+Note: The final bus settle delay doesn't need to be explicit if your
+CPU is slow enough, but a fast processor might see its own data high
+as start condition because of the slow rise times of the
+open-collector serial bus.
+
+1581 fastsaver
+--------------
+Note: This fastsaver is known to use different timing on PAL and NTSC.
+
+The 1581 fastsaver opens the target file on secondary address 1 for
+writing. When the loader is uploaded, it will pull the clock line low
+and the data line high. The original code waits approximately 800
+microseonds at this point.
+
+For every sector of the file (254 bytes of data), 256(!) bytes are
+received in forward order. The first two bytes of this data block are
+not part of file contents. If the first byte is non-zero, more sectors
+will follow. If the first byte is zero, the second byte is the offset
+in the received data buffer (including the two initial bytes) of the
+first byte that is not part of the file anymore (0 if everything is
+part of the file).
+
+The timing for receiving a single byte in the PAL version is:
+
+   Time  Clock Data
+   ----------------
+  setup    1    1   (set lines high on the drive side)
+    0us    1   0->1 (wait for change, not level! - timing reference)
+   12us   !b7  !b5
+   22us   !b6  !b4
+   38us   !b3  !b1
+   48us   !b2  !b0
+   53us    0    1   (set by drive)
+

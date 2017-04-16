@@ -1,0 +1,395 @@
+GEOS fast loader protocol
+=========================
+
+Documented by Ingo Korb
+
+GEOS 64 2.0 uses multiple (but similiar) drive codes during its boot process,
+all of them uploaded using M-W. The protocol is the same for every
+drive type (FIXME: check FD/HD), but the addresses sent differ between
+drives and also between stages. The first stage loader sends hard-coded
+sector chains to the computer, stage 2 and 3 receive commands (actually
+jump addresses in drive memory) from the computer. Copy protection checks
+happen in both stage 1 and 2, but the check in stage 2 is completely
+transparent for a reimplementation that does not plan on failing it.
+
+GEOS 128 2.0 uses a stage 2 loader that is almost identical to the
+GEOS 64 stage 3 loader, handling it the same in emulation will work
+because the changes are only related to copy protection checks.
+
+GEOS 1.3 uses the same stage 1 and 2 code as GEOS 2.0, but does not
+upload a stage 3 version. It was not tested in-depth, some operation
+addresses may be missing.
+
+An implementation of this speeder will need to reserve a 256 byte
+buffer for data and a second buffer of at least 4 bytes (no larger
+transfers have been observed yet, but the protocol could support
+up to 256 bytes containing arbitrary 6502 code) for receiving commands.
+
+During boot GEOS will try to auto-detect the drive type by reading
+large parts of the rom using M-R. The specifics of this rom check have
+not been analyzed yet, but GEOS will assume a 1541 for the boot drive
+and no drive for any other when it sees semi-random data (as in the
+implementation of M-R in sd2iec). Selecting a drive in Configure will
+also result in a rom check, but it seems to accept the choice anyway
+if nonsensical data is returned.
+
+This file is roughly ordered from lowest to highest protocol level.
+
+
+Low-Level byte reception
+------------------------
+Both data and clock should be set to high already from previous
+operations. Using the high->low transition of clock as a timing
+reference, receive bits as shown in the following tables. The timing
+differs for 1MHz (1541) and 2MHz (1571/1581) drives.
+
+1MHz:
+   Time  Clock Data
+   ----------------
+    0us  1->0  (1)  (timing reference)
+   15us   !b4  !b5
+   29us   !b6  !b7
+   43us   !b3  !b1
+   59us   !b2  !b0
+
+2MHz:
+   Time  Clock Data
+   ----------------
+    0us  1->0  (1)  (timing reference)
+   15us   !b4  !b5
+   29us   !b6  !b7
+   39.5us !b3  !b1
+   50.5us !b2  !b0
+
+During a block reception, the time from the completion of one byte and
+the beginning of the next is 9+11us (before+after). Without a bit of
+post-transfer delay the next transfer may be garbled.
+
+
+Low-Level byte transmission
+---------------------------
+To transmit a data byte, do this:
+- release both clock and data
+(- add a small delay so the bus can charge to high level)
+- wait until clock is low
+- use the following tables for bit timings, using the low->high transition of
+  the clock line as timing reference - there are three variations for
+  1MHz (1541), 2MHz (1571/1581 in Configure 2.0 or 2.1) drives:
+
+1MHz:
+   Time  Clock Data
+   ----------------
+    0us  1->0  (1)  (timing reference)
+   18us   !b3  !b1
+   28us   !b2  !b0
+   39us    b4   b5
+   51us    b6   b7
+   70us    -    -   (hold time so the C64 has time to read b6/b7)
+
+2MHz for 1571 (always) and 1581 (Configure 2.0):
+   Time  Clock Data
+   ----------------
+    0us  1->0  (1)  (timing reference)
+    9us   !b3  !b1
+   20us   !b2  !b0
+   32us    b4   b5
+   44us    b6   b7
+   66us    -    -   (hold time so the C64 has time to read b6/b7)
+
+2MHz for 1581 (Configure 2.1):
+   Time  Clock Data
+   ----------------
+    0us  1->0  (1)  (timing reference)
+    7us    b0   b1
+   14us    b2   b3
+   24us    b4   b5
+   33us    b6   b7
+   45us    -    -   (hold time so the C64 has time to read b6/b7)
+
+
+Note: This description assumes that the reimplementation can
+synchronize to the falling edge of the clock line with much less
+jitter than a 1541 can. The original 1MHz code also tests for the
+rising edge of the 10us pulse on the clock line in order to reduce the
+timing jitter from seven to five clock cycles.
+
+
+Receiving a block
+-----------------
+Data is transferred from the C64 to the drive in blocks of variable
+size from 1-256 bytes. A block transfer of k bytes happens as follows:
+
+- wait until clock is high
+- set data high
+(- delay 15us?)
+- receive k bytes, starting at the end of the buffer
+- set data low
+
+To receive a block from the C64, this block transfer is invoked
+twice. First a one-byte transfer is used to set the block length (0
+stands for 256 bytes), then a second transfer with that number of
+bytes is used to transfer the data. Please note that the data is
+transferred backwards (i.e. sending buffer[k-1], [k-2], ..., [0]).
+
+
+Transmitting the job result (STATUS)
+------------------------------------
+The STATUS operation is called occasionally to check if a previous
+operation has completed successfully. It transmits a single byte which
+is a job status code read from $0000 in the original implementation. A
+minimal implementation that just sends 1 for ok and 2 if a disk
+read/write operation failed is sufficient. The STATUS operation does
+the following:
+
+- wait until clock is high
+- set data high
+- send a single 0x01 byte as length indicator
+- set clock high, data low
+- delay 15us (time guessed, but works)
+- wait until clock is low
+- set data high
+- send the status byte
+- set clock high, data low
+- delay 15us (time guessed, but works)
+
+
+Transmitting the data buffer (TRANSMIT_3)
+-----------------------------------------
+The TRANSMIT operation of stage 3 is usually called after reading a
+sector to transfer its contents to the C64. It works as follows:
+
+- wait until clock is high
+- set data high
+- transmit all 256 bytes of the buffer, starting at last byte
+- set clock high, data low
+- delay 15us (time guessed, but works)
+- call the STATUS operation
+
+Please note that the transmit operation transfers data backwards, just
+as receive does.
+
+
+Transmitting the data buffer (TRANSMIT_2)
+-----------------------------------------
+Stage 2 uses a slightly different implementation of TRANSMIT. Instead
+of always sending the data buffer it will instead execute a STATUS
+operation if a previous operation returned an error and a modified
+TRANSMIT operation if the previous operation was successful. The
+modified TRANSMIT operation works as follows:
+
+- wait until clock is high
+- set data high
+- send a single 0x00 byte as length indicator
+- set clock high, data low
+- delay 15us (time guessed, but works)
+(same steps as TRANSMIT_3 from here)
+- wait until clock is high
+- set data high
+- transmit all 256 bytes of the buffer, starting at last byte
+- set clock high, data low
+- delay 15us (time guessed, but works)
+- call the STATUS operation
+
+
+Transmitting the data buffer (TRANSMIT_81)
+------------------------------------------
+The 1581 code uses yet another variation on the transmit scheme. If
+bit 7 of the first parameter byte is 0, it sends all 256 bytes of the
+buffer followed by a status operation (exactly as TRANSMIT_3). If bit
+7 if the first parameter byte is 1, it just sends the first two bytes
+(still in reverse order) before running STATUS.
+
+
+Reading a sector (READ)
+-----------------------
+The READ operation requires no communication with the computer. The
+first parameter (see main loop entry below) is the track, the second
+parameter is the sector number.
+
+
+Reading and transmitting a sector (READ_AND_SEND)
+-------------------------------------------------
+This operation is only found in the 1571 (FIXME: 1581 too?) drive
+code. It reads the track/sector sent as parameter (as READ) and
+immediately transmits it to the computer, followed by a STATUS
+operation (same as TRANSMIT_3).
+
+
+Writing a sector (WRITE_41)
+---------------------------
+The WRITE_41 operation receives a block into the data buffer and writes
+it to the track/sector specified by the first/second parameter (see
+main loop entry below).
+
+
+Writing a sector (WRITE_71)
+---------------------------
+The 1571/1581 code uses a slightly different WRITE operation.
+It still uses the first/second parameter as track/sector, but always
+receives exactly 256 bytes (without length byte prefix). After
+receiving the data, the STATUS operation is called
+
+
+Exiting the fastloader (QUIT)
+-----------------------------
+GEOS only enables its fast loader on one drive at a time and will also
+quit it if it needs to run standard CBM DOS commands, e.g. for
+formatting a disk. At least during boot the system will assume that
+the fast loader code is still present in the drive ram and M-E it
+without another upload. The QUIT operation does the following:
+
+- wait until clock is high
+- set data high
+- return to the standard serial bus handler
+
+Note: The original stage 2 does not wait, but using the stage 3
+      implementation for stage 2 works fine.
+
+
+Initializing a disk (INITIALIZE)
+--------------------------------
+In the original code this operation will try to find a readable track
+and set the bit rate to the correct value for this track. A
+reimplementation can completely ignore this operation. In the 1581
+code this operation implicitly calls FLUSH.
+
+
+Flushing dirty buffers (FLUSH)
+------------------------------
+The 1581 code has an operation that is not seen in the 1541/1571
+code. It flushes dirty buffer contents to disks, without any
+communication with the computer. A reimplementation can handle it the
+same way as INITIALIZE, i.e. ignore it.
+
+
+Change device address (SET_ADDRESS)
+-----------------------------------
+This operation is used when swapping the C drive with either A or B
+and changes the device address used during standard serial
+communication. The parameter byte is the new address ORed with 0x20.
+
+
+Stage 2/3 initialisation and main loop
+--------------------------------------
+The diskTurbo protocol uses a very simple handshake when it is
+executed with M-E:
+
+- set data low
+- wait until CLOCK is low
+
+After that it enters its own main loop which runs until a QUIT
+operation is received. The main loop just does a block receive into
+the command buffer, which should transfer just 2-4 bytes (FIXME: Check
+that). The first two bytes are used as an indirect jump address (low
+byte first), the third and fourth byte (if they exist) are optional
+parameters for the operation.
+
+Because of the indirect jump used it is possible that this
+documentation is missing operations, but the seven operations listed
+are the only ones that have been seen during testing and all the code
+uploaded to the drive has been accounted for.
+
+The following addresses have been observed in the various stages and
+drive variations until now. (FIXME: Unique between all variations?)
+
+Addr   Function
+----  ----------
+031f  STATUS        (1541 stage 2 - only used in GEOS 1.3; 1571)
+031f  TRANSMIT_81   (1581)
+0320  TRANSMIT_3    (1541 stage 3)
+0325  STATUS        (1541 stage 3)
+032b  STATUS        (1581)
+0412  QUIT          (1541 stage 2)
+0420  QUIT          (1541 stage 3)
+0428  SET_ADDRESS   (1541 stage 2 - guessed from code, not seen in action yet)
+0432  TRANSMIT_2    (1541 stage 2)
+0439  SET_ADDRESS   (1541 stage 3)
+0457  QUIT          (1581)
+0475  QUIT          (1571)
+047c  WRITE_71      (1581) [sic!]
+049b  INITIALIZE    (1581)
+04a5  SET_ADDRESS   (1571)
+04af  READ_AND_SEND (1571)
+04b9  FLUSH         (1581)
+04cc  READ          (1581)
+04dc  INITIALIZE    (1541 stage 3)
+0504  INITIALIZE    (1541 stage 2 - only used in GEOS 1.3)
+057c  WRITE_41      (1541 stage 2 and 3)
+057e  INITIALIZE    (1571)
+058e  READ          (1541 stage 2 and 3)
+05fe  WRITE_71      (1571)
+
+Please note that address 031f is used with different functions in the
+1541/71 and 1581 code.
+
+There is no SET_ADDRESS function for the 1581, GEOS uses the standard
+U0> command instead.
+
+
+Stage 1 sector chain transfer
+-----------------------------
+The chain transfer in stage 1 works similiarly to a file transfer from
+a D64 in standard mode - a track/sector number is passed to the transfer
+subroutine which will read that sector, transfer its data and switch
+to the next track/sector specified in the first two bytes of the
+sector unless the track byte is 0 to mark the end of the chain.
+
+A transfer of a single sector in a chain works like this:
+- read the current sector (specified by track and sector numbers,
+  initial value passed as parameter)
+- decrypt the data starting at offset 2 of the sector if necessary
+- calculate the actual number of bytes in the sector
+  (sectordata[1]-1 if sectordata[0] is zero; 254 otherwise)
+- wait until clock is low
+- set data high
+- send the actual number of bytes in the sector
+- set clock high, data low
+- delay 15us
+(same steps as TRANSMIT_3 from here, just with a different number of bytes)
+- wait until clock is high
+- set data high
+- transmit data bytes, starting at the last byte
+- set clock high, data low
+- delay 15us (time guessed, but works)
+- call the STATUS operation
+- if sectordata[0] is non-zero:
+  - use sectordata[0] as current track, sectordata[1] as current sector
+  - transfer the next sector
+
+After sending the last sector in the chain, one more byte must be sent:
+- wait until clock is high
+- set data high
+- send a 0-byte
+- set clock high, data low
+- delay 15us
+
+
+Stage 1 operation
+-----------------
+Stage 1 is a fixed-function loader that sends three hard-coded sector
+chains to the computer, decrypting the second and third by XORing the
+data bytes with parts of its own code. The decryption key can be
+captured from the M-W commands used to upload stage 1, the key
+consists of 254 bytes starting at memory address 0x042a for GEOS 64 or
+0x044f for GEOS 128.
+
+To decrypt a data buffer before sending it to the computer, XOR each
+byte of the data buffer with the corresponding byte of the key, i.e.:
+    for (i=0;i<254;i++)
+      buffer[i] = buffer[i] ^ key[i];
+
+The stage 1 loader in GEOS 64 does the following:
+- set data low
+- wait until clock is low
+- transfer the sector chain starting at track 19 sector 13
+  (without decryption)
+- transfer the sector chain starting at track 20 sector 15
+  (including decryption)
+- transfer the sector chain starting at track 20 sector 17
+  (including decryption)
+- set data high
+- return to the standard serial bus handler
+
+In GEOS 128 the operation is basically the same, but the sector chains
+are different. The unencrypted one is 19/12, followed by decrypted
+chains 20/15, 23/6 and 24/4.

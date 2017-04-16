@@ -1,0 +1,387 @@
+Nippon Loader (by Joerg Jungermann)
+=============
+This document describes the reverse engineered portion of the loader used
+in the german adventure role playing game "Nippon".
+It is unknown if this loader is used in other releases.
+
+The loader is not fast, but the timing is relaxed.
+It works without crystal and allows IRQs to be enabled on the C64 side.
+
+
+State machine
+-------------
+The code executed in the 15x1 implements the following state machine.
+ATN low and CLOCK are used to syncronise C64 and Floppy. The data is transmitted via DATA.
+
+The state machine is started by uploading multiple chunks of code in 16byte blocks to drives
+memory from $0300 to $041f. The last block uploaded begins at $0410 and has the checksum $43c1.
+Therefor it is used to identify the loader, if a successive call using M-E executes code at $0300.
+
+       START
+      +---------+
+ +->--|idle loop|
+ |    +---------+
+ |       |
+ |       | ATN low
+ ^       |
+ |       |
+ |       V
+ |    +-------+  T > $80       +-----------------+
+ |    |get T/S|--------------->| exit to CBM-DOS |
+ |    +-------+                +-----------------+
+ |       |  |
+ |       |  +------------------+
+ |       |                     |
+ ^       | S < $80             | S > $80
+ |       V                     V
+ |    +---------+            +----------------------+
+ +-<--|write T/S|            |read T/S with S &= $7f|
+ |    +---------+            +----------------------+
+ |                                   V
+ +--<--------------------<-----------+
+
+
+Idle loop
+---------
+The idle loop set ATN,CLOCK and DATA high, and waits for ATN low to get track, sector and command.
+
+
+Get track & sector
+------------------
+In this state the drive code expects two bytes from the C64. Before any bit is received or sent over
+the IEC bus a special handshake is done to synchronize drive and computer.
+
+The first byte identifies the track for the next action.
+If the track byte is larger than $80 (bit 7 is set) the drive code jumps to the 1541 reset vector.
+This is usually called, if the game is left throug the in game menu.
+
+The second byte fetched contains the command and the sector information: Bit 7 determines if command
+read or write. if bit 7 is set the command is read, otherwise write.
+The sector is the 2nd byte & $80.
+
+
+Synchronisatiion handshake
+--------------------------
+This handshake is done before any bit transfer.
+1. If ATN low, set CLOCK low and jump back to idle loop. Drive code is out of sync with Cevi.
+   Strangly nothing is done to detect such errors an C64 side, except for a endless loop,
+   so the game will work or simply crash.
+2. Wait CLOCK to become low
+
+
+Read byte
+---------
+1. CLK, DATA are set high
+2. Until 8 bits are received via IEC
+ a. Wait for syncronisation handshake to finish, first bit received is bit 0.
+ b. read one bit from DATA
+3. set CLK low and DATA high
+
+Write byte
+----------
+1. CLK, DATA are set high
+2. Until 8 bits are send over IEC
+ a. Wait for syncronisation handshake to finish
+ b. write one bit to DATA, first bit sent is bit 0
+3. set CLK low and DATA high
+
+Read T/S
+--------
+1. Sector T/S is fetched into buffer
+2. Byte after byte is tranfered starting with byte 0 to byte $ff. A full sector is transfered.
+
+Write T/S
+--------
+1. $ff bytes are fetched into a buffer.
+2. Buffer is written as sector T/S.
+
+
+
+Disassembled floppy code
+------------------------
+; CBM Dasm V2.24
+
+*=$0300
+
+; $1800 bits
+;   bit 7  - ATN in inverted, to read bus bit 4 must be 0
+;  ......
+;   bit 4  - ATN out inverted
+;   bit 3  - Clock out inverted
+;   bit 2  - Clock in inverted, to read bus bit 3 must be 0
+;   bit 1  - Data out inverted
+;   bit 0  - Data in inverted, to read bus bit 1 must be 0
+
+; $C6 = tmp ? counter ? transfer byte
+
+; set drive led off and IRQs off
+0300    20  ED  03   JSR $03ED       
+0303    A2  45       LDX #$45        
+0305    86  C6       STX $C6         
+; stack pointer init
+0307    9A           TXS             
+
+; idle loop - wait for ATN low
+; set ATN = CLK = Data = high
+0308    A9  00       LDA #$00        
+030A    8D  00  18   STA $1800       
+030D    AD  00  18   LDA $1800       
+; when ATN low Acc > $80 branch
+0310    30  18       BMI $032A       
+0312    C6  C6       DEC $C6         
+; branch when $c6 is not $00
+0314    D0  F2       BNE $0308       
+; set CLK to 0
+0316    09  08       ORA #$08        
+0318    8D  00  18   STA $1800       
+031B    EA           NOP             
+031C    EA           NOP             
+031D    EA           NOP             
+031E    EA           NOP             
+; branch if ATN low
+031F    AD  00  18   LDA $1800       
+0322    30  0B       BMI $032F       
+; ab undzumal nen irq zulassen
+0324    58           CLI             
+0325    EA           NOP             
+0326    78           SEI             
+0327    4C  08  03   JMP $0308       
+
+
+; fetch track byte
+; CLK to low
+032A    09  08       ORA #$08        
+032C    8D  00  18   STA $1800       
+; wait for ATN high
+032F    AD  00  18   LDA $1800       
+0332    30  FB       BMI $032F       
+; drive LED on
+0334    20  F7  03   JSR $03F7       
+; fetch track byte from IEC
+0337    20  6D  03   JSR $036D       
+; if Accu > $80 reset floppy, exit this code
+033A    10  03       BPL $033F       
+033C    4C  A0  EA   JMP $EAA0       
+
+; store track byte in command for buffer 4
+033F    85  0E       STA $0E         
+
+; fetch a byte from IEC
+0341    20  6D  03   JSR $036D       
+; if Acc < $80 fetch $100 bytes in buffer 4, else read sector to buffer 4
+0344    30  13       BMI $0359       
+; store sector in command for buffer 4
+0346    85  0F       STA $0F         
+; fetch $100 bytes via IEC to $0700 buffer 4
+0348    A0  00       LDY #$00        
+034A    20  6D  03   JSR $036D       
+034D    99  00  07   STA $0700,Y     
+0350    C8           INY             
+0351    D0  F7       BNE $034A       
+; store bytes in buffer 4 to track/sector job 4
+0353    20  01  04   JSR $0401       
+; restart idle loop
+0356    4C  00  03   JMP $0300       
+; store sector in command for buffer 4
+0359    29  7F       AND #$7F        
+035B    85  0F       STA $0F         
+; read sector to buffer 4
+035D    20  04  04   JSR $0404       
+; transfer $100 bytes via IEC
+0360    A0  00       LDY #$00        
+0362    B9  00  07   LDA $0700,Y     
+; send byte
+0365    20  93  03   JSR $0393       
+0368    C8           INY             
+0369    D0  F7       BNE $0362       
+; branch always to idle loop
+036B    F0  93       BEQ $0300       
+
+
+
+; fetch a byte to Accu via IEC
+; bit counter to 8 count down 
+036D    A2  08       LDX #$08        
+; set CLK DATA high
+036F    AD  00  18   LDA $1800       
+0372    29  F5       AND #$F5        
+0374    8D  00  18   STA $1800       
+; wait for ATN, CLOCK low
+0377    20  C2  03   JSR $03C2       
+; fetch DATA in to Carry-Flag
+037A    AD  00  18   LDA $1800       
+037D    4A           LSR             
+; push carry to bit 7 of $c6
+037E    66  C6       ROR $C6         
+; wait Clock high
+0380    20  BA  03   JSR $03BA       
+; bit count decrement
+0383    CA           DEX             
+; fetch next bit
+0384    D0  F1       BNE $0377       
+; data out high, clock low
+0386    AD  00  18   LDA $1800       
+0389    29  FD       AND #$FD        
+038B    09  08       ORA #$08        
+038D    8D  00  18   STA $1800       
+; byte in accu holen
+0390    A5  C6       LDA $C6         
+0392    60           RTS             
+
+
+
+; tranfer byte in Accu via IEC
+; invert Accu and store to $c6
+0393    49  FF       EOR #$FF        
+0395    85  C6       STA $C6         
+; byte counter
+0397    A2  08       LDX #$08        
+; set CLK high
+0399    A9  F7       LDA #$F7        
+039B    2D  00  18   AND $1800       
+039E    8D  00  18   STA $1800       
+; wait for ATN, CLOCK low
+03A1    20  C2  03   JSR $03C2       
+; fetch a bit from $C6
+03A4    A9  00       LDA #$00        
+03A6    46  C6       LSR $C6         
+; bracch if bit to transfer 0 carry clear 
+03A8    90  05       BCC $03AF       
+; bit = 1
+03AA    20  E4  03   JSR $03E4       
+; branch always
+03AD    D0  03       BNE $03B2       
+; bit = 0
+03AF    20  DB  03   JSR $03DB       
+; wait for clock high
+03B2    20  BA  03   JSR $03BA       
+; decrement byte counter
+03B5    CA           DEX 
+; do it till 8 bytes are transfered
+03B6    D0  E9       BNE $03A1
+; branch always
+03B8    F0  CC       BEQ $0386       
+
+
+
+; wait for Clock high
+03BA    A9  04       LDA #$04        
+03BC    2C  00  18   BIT $1800       
+03BF    D0  F9       BNE $03BA       
+03C1    60           RTS             
+
+
+
+; wait for atn, clock low
+; when ATN high and Clock high reinit
+03C2    A9  04       LDA #$04        
+03C4    2C  00  18   BIT $1800       
+; branch if ATN low
+03C7    30  03       BMI $03CC       
+; when CLOCK high wait again for ATN high
+03C9    F0  F7       BEQ $03C2       
+; when ATN, Clock low return
+03CB    60           RTS             
+; set clock low
+03CC    0A           ASL             
+03CD    0D  00  18   ORA $1800       
+03D0    8D  00  18   STA $1800       
+; wait for ATN high
+03D3    2C  00  18   BIT $1800       
+03D6    30  FB       BMI $03D3       
+; reinit
+03D8    4C  00  03   JMP $0300       
+
+
+; set Data high
+03DB    A9  FD       LDA #$FD        
+03DD    2D  00  18   AND $1800       
+03E0    8D  00  18   STA $1800       
+03E3    60           RTS             
+
+; set Data low
+03E4    A9  02       LDA #$02        
+03E6    0D  00  18   ORA $1800       
+03E9    8D  00  18   STA $1800       
+03EC    60           RTS             
+
+
+; drive LED off
+03ED    78           SEI             
+03EE    A9  F7       LDA #$F7        
+03F0    2D  00  1C   AND $1C00       
+03F3    8D  00  1C   STA $1C00       
+03F6    60           RTS             
+
+; drive LED on
+03F7    78           SEI             
+03F8    A9  08       LDA #$08        
+03FA    0D  00  1C   ORA $1C00       
+03FD    8D  00  1C   STA $1C00       
+0400    60           RTS             
+
+
+; exec write sector job code, wait for end
+0401    A9  90       LDA #$90        
+0403    2C  A9  80   BIT $80A9       
+
+; exec read sector job code, wait for end
+  0404 LDA #$80
+0406    85  04       STA $04         
+0408    58           CLI             
+0409    A5  04       LDA $04         
+040B    30  FC       BMI $0409       
+040D    78           SEI             
+040E    60           RTS             
+
+
+040F    50  85       BVC $0396       
+0411    48           PHA             
+0412    60           RTS             
+
+
+0413    0D  00  18   ORA $1800       
+0416    8D  00  18   STA $1800       
+0419    2C  00  18   BIT $1800       
+041C    30  FB       BMI $0419       
+041E    4C  00  03   JMP $0300       
+
+
+0421    A9  FD       LDA #$FD        
+0423    2D  00  18   AND $1800       
+0426    8D  00  18   STA $1800       
+0429    60           RTS             
+
+
+042A    A9  02       LDA #$02        
+042C    0D  00  18   ORA $1800       
+042F    8D  00  18   STA $1800       
+0432    60           RTS             
+
+
+0433    78           SEI             
+0434    A9  F7       LDA #$F7        
+0436    2D  00  1C   AND $1C00       
+0439    8D  00  1C   STA $1C00       
+043C    60           RTS             
+
+
+043D    A9  90       LDA #$90        
+043F    2C  A9  80   BIT $80A9       
+0442    85  04       STA $04         
+0444    A5  04       LDA $04         
+0446    30  FC       BMI $0444       
+0448    60           RTS             
+
+
+0449    04                   
+044A    30  FC       BMI $0448       
+044C    60           RTS             
+
+
+044D    FF                   
+044E    FF                   
+044F    FF                   
+0450-04FF    00           BRK             
+
+; End of file.

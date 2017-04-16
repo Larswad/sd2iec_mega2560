@@ -1,0 +1,40 @@
+Quick notes on using sd2iec with an mbed LPC1768:
+- if in any doubt, wait until someone has designed a nice PCB for this
+- this information can become obsolete faster than you expect, so
+  don't complain if you need to rewire your device
+- an XPresso LPC1768 should also work, but I haven't tested that
+- UART 0 is the debug serial port (USB-connected on mbed)
+- an external 24C02 or similiar EEPROM is required for the
+  configuration settings - steal one from an old DIMM ;)
+- an external 3.3V regulator may or may not be required
+  (I'm using one, but VOUT of the mbed may be sufficient)
+- SD card interface:
+  - p11  DI
+  - p12  DO
+  - p13  CLK
+  - p14  SD card CS
+  - p17  card detect switch (grounded if card inserted)
+  - p18  write protect switch (grounded if write protection disabled)
+- I2C interface to the EEPROM (and display - untested!)
+  - p9   SDA
+  - p10  SCL
+  - use external 4k7 pullups to 3.3V!
+- address selection
+  - p21  8/9
+  - p22  8/10
+- buttons
+  - p23  Next
+  - p24  Previous
+- serial bus
+  - inputs connected via a 74HCT14 (LS is ok too, HC is NOT)
+  - outputs connected via a 74HCT06 (LS is ok too, HC is NOT)
+  - inputs:
+    - p15 ATN
+    - p30 Clock
+    - p29 Data
+    - p16 SRQ
+  - outputs:
+    - p6 ATN
+    - p8 Clock
+    - p7 Data
+    - p5 SRQ

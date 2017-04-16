@@ -1,0 +1,129 @@
+ULoad Model 3 Protocol
+======================
+
+ULoad Model 3 by MagerValp, http://www.paradroid.net/uload/
+documented by Ingo Korb
+
+ULoad Model 3 is a 2-bit byte-synchronizing fast loader that
+doesn't use ATN and assumes a track/sector-organized medium with
+a standard CBM directory layout. It uses the same drive detection
+code as Dreamload, but unlike Dreamload it can also change existing
+files.
+
+High level
+==========
+
+ULoad Model 3 has its own "idle loop" that reads a command byte and
+reacts accordingly. It aborts when the ATN line is low while waiting
+for synchronisation in the byte receive subroutine.
+
+"Idle loop"
+-----------
+1) Receive a byte
+2) If byte is 1, call "Load a file"
+3) If byte is 2, call "Replace a file"
+4) If byte is 36 ('$'), call "Directory"
+5) Otherwise send a 0xff byte
+6) Go to 1
+
+Load a file (command code 1)
+----------------------------
+1) Receive a byte, store as track number
+2) Receive a byte, store as sector number
+3) Call Chain transmission
+
+Replace a file (command code 2)
+-------------------------------
+1) Receive a byte, store as track number
+2) Receive a byte, store as sector number
+3) Read current track/sector to buffer
+   If reading was not successful: Send 0xff, return to Idle loop
+4) Get the number of bytes used in the current sector
+   (buffer[1]-1 if buffer[0] is 0, 254 otherwise)
+5) Send number of byte used
+6) If this is the first sector:
+   a) Send buffer[2] (start address low)
+   b) Send buffer[3] (start address high)
+   c) Start at buffer[4], reduce number of bytes by 2
+   Otherwise:
+   a) Start at buffer[2]
+7) Receive <number of bytes> bytes into buffer
+8) Write buffer contents to disk, same track/sector
+   If writing was not successful: Send 0xff, return to Idle loop
+9) Set track = buffer[0], sector = buffer[1]
+10) If track != 0, go to 3
+11) Send 0
+12) Return to Idle loop
+
+Directory
+---------
+1) Get the start of directory from somewhere, store as track/sector
+   (track 18 sector 1 on a 1541)
+2) Call Chain transmission
+
+Chain transmission
+------------------
+1) Read current track/sector to buffer
+   If reading was not successful: Send 0xff, return to Idle loop
+2) Get the number of bytes used in the current sector
+   (buffer[1]-1 if buffer[0] is 0, 254 otherwise)
+3) Send number of bytes used
+4) Send that many bytes, starting at buffer[2]
+5) Set track = buffer[0], sector = buffer[1]
+6) If track != 0, go to 1
+7) Send 0
+8) Return to Idle loop
+
+
+Low level
+=========
+
+Receiving a byte
+----------------
+1) set clock low, data high
+2) wait until data is low; if ATN is low return to the standard bus loop
+3) set clock high, data high
+4) wait until data is high
+5) transfer data (see table below)
+6) invert resulting byte
+7) delay for about 20 microseconds to make sure the C64 has returned
+   the bus to clock high/data high, otherwise the next send/receive
+   call can fail
+
+Sampling times for reception:
+
+Time Clk Data
+-------------
+ 0us (1) 0->1   (data low -> high transition in step 4 is the timing reference)
+14us  b7   b5
+24us  b6   b4
+38us  b3   b1
+48us  b2   b0
+
+The original transfer code reads the first data sample between 11us and 17us
+after the data line transition.
+
+Sending a byte
+--------------
+1) set clock high, data low
+2) wait until clock is low; no ATN abort in the original, but it wouldn't hurt
+3) set clock high, data high
+4) wait until clock is high
+5) transfer data (see table below)
+6) set clock high, data high
+
+Timing for transmission:
+
+Time Clk Data
+-------------
+ 0us 0->1 (1)   (clock low -> high transition in step 4 is the timing reference)
+14us  b0   b1
+22us  b2   b3
+30us  b4   b5
+38us  b6   b7
+48us  1    1    (step 6)
+
+Note: Bits are sent without inversion, i.e. low for a 0-bit, high for a 1-bit.
+
+The original transfer code sends the first bit pair between 11us and 17us
+after the clock line transition.

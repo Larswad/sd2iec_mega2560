@@ -1,0 +1,238 @@
+The Final Cartridge III Fast Loader and Saver Protocol
+======================================================
+
+analysed by Thomas Giesel
+notes about the Freezer-variation and EXOS V3 by Ingo Korb
+
+This document describes the fast loader and saver protocol of the FC3. The
+description may not be accurate in any point.
+
+LOADING
+=======
+
+First of all the FC3 opens the file and reads the first two bytes to check the
+load address. It does not close the file before starting the fast loader, so
+that one just starts with the last sector loaded.
+
+When the loader starts it sets both data and clock to high to signal that it
+is currently busy.
+
+The FC3 does always transfer whole blocks, even if not all bytes are used.
+Each block is transferred in 65 tuples with 4 bytes each.
+
+Before sending a block the drives pulls CLOCK low and waits for the host to
+respond by pulling DATA low. Then drive and host release these lines.
+
+The first tuple is sent about 180 us after this handshake. As each tuple has
+its own synchronization this timing doesn't need to be accurate. Between two
+tuples there are about 190 us. In sd2iec these to delays were originally
+reduced to 150 us which works fine for the FC3, but fails with EXOS.
+
+1st tuple:
+0: not used (always 7, data marker on disk)
+1: block counter, starting at 0
+2: 0 if all bytes must be used, number of bytes otherwise
+3: First byte of block
+
+The protocol is able to transfer sectors out-of-file-order as they are read
+from disk, the block counter is used to store them in the correct order on
+the C64 side.
+
+2nd..64th tuple:
+4 bytes from block
+
+65th tuple:
+0: last byte of block
+1..3: not used
+
+Each tuple is syncronized by the drive pulling CLOCK low, then 2 bits are
+transfered at once until the 4 bytes are done. Bit 0 is on CLOCK, Bit 1 on
+DATA and so on. Electrical 0 means binary 0. Finally CLOCK and DATA are
+released to high level.
+
+EOF is marked by pulling DATA low instead of starting a new handshake.
+I/O errors are marked by pulling DATA and CLOCK low.
+
+The "|" marks are the point of time when the bus is written or read.
+
+===============================================================================
+C64 read (PAL)
+ 1   (+12)   13  (+12)   25  (+12)    37  (+12)   49   (+14)    63 (+12)  cycle
+-|||||||-----|||||||-----|||||||------|||||||-----|||||||-------|||||||--
+ 1..7        13.2..19.2  25.4..31.4   37.6..43.6  49.7..55.7    63.9..69.9   us
+ (sync)
+
+1541 write
+|-----------|-----------|------------|-----------|------------|----------
+0   (+12)   12  (+12)   24   (+13)   37  (+12)   49   (+13)   62  (+12)      us
+CLK low     1st pair    2nd pair     3rd pair    4th pair     5th pair
+
+sd2iec write
+|-----------|-----------|-----------|-----------|-------------|----------
+0  (+12)    12  (+12)   24  (+12)   36  (+12)   48   (+14)    62  (+12)      us
+
+===============================================================================
+C64 read (PAL) cont'd
+     75  (+12)   87  (+12)   99   (+14)     113  (+12)   125   (+12)      cycle
+...--|||||||-----|||||||-----|||||||--------|||||||------|||||||---------
+     76.1..82.1  88.3..94.3  00.5..06.5     14.7..20.7   26.9..32.9          us
+
+1541 write
+..-|------------|-----------|------------|-----------|-------------------
+   74   (+13)   87   (+12)  99   (+13)   112  (+12)  124  (+13)              us
+   6th pair     7th pair    8th pair     9th pair    10th pair
+
+sd2iec write
+..-|-----------|-----------|-------------|-----------|-------------------
+   74  (+12)   86  (+12)   98   (+14)    112  (+12)  124  (+12)              us
+
+===============================================================================
+C64 read (PAL) cont'd
+        137  (+12)  149   (+14)   163  (+12)   175  (+12)  187  (+12)     cycle
+...-----|||||||-----|||||||-------|||||||------|||||||-----|||||||-------
+        39.1..45.1  51.2..57.2    65.4..71.4   77.6..83.6  89.8..95.8        us
+
+1541 write
+...---|-----------|------------|-----------|------------|----------------
+      137  (+12)  149  (+13)   162  (+12)  174  (+13)   187  (+12)           us
+      11th pair   12th pair    13th pair   14th pair    15th pair
+
+sd2iec write
+...--|-----------|-------------|-----------|-----------|----------------
+     136  (+12)  148  (+14)    162  (+12)  174  (+12)  186  (+12)            us
+
+===============================================================================
+C64 read (PAL) cont'd
+           199                                                            cycle
+...--------|||||||-------------------------------------------------------
+           02.0..08.0                                                        us
+
+1541 write
+...-----|----------------------------------------------------------------
+        199  (+16)                                                           us
+        16th pair
+
+sd2iec write
+...----|----------------------------------------------------------------
+       198   (+14)                                                           us
+
+
+Fastloader in freezed files
+===========================
+Programs freezed using the "F.DISK" command of the FC3 use a fast loader
+similiar to the normal FC3 fastloader. Like the normal fastloader it opens
+the target file for reading with the standard protocol and it also uses
+the same protocol and timing to transmit a four-byte tuple to the C64.
+However, the handshaking inbetween and the contents of the first tuple
+are different. The freezer-variant transmits the data from disk directly
+which means that the first tuple contains a 0x07, the track and sector
+of the next sector in a file and the first data byte. Everything but
+the data byte is ignored by the C64-side code, so the blocks must
+be sent in file order.
+
+Both end-of-file and error conditions are signalled by pulling DATA low.
+A full clock/data handshake is done before the transmission of every tuple
+which means that the fixed delays between tuples can be dropped.
+
+The freeze-loader closes and reopens the data file using the standard
+protocol after the fast protocol has finished transmitting the file.
+
+
+Old Fastloader in freezed files
+===============================
+Some older versions of the Final Cartridge 3 appear to use a different
+fast loader in freezed files. This has been confirmed for a cartridge
+ROM that reports itself as "SEP 1987", Disk Operations V1.0. This
+particular loader is a simple 2-bit fastloader using the following
+timing tables:
+
+PAL:
+   Time  Clock Data
+   ----------------
+    0us  0->1  (1)  (timing reference)
+   14us   !b0  !b1
+   22us   !b2  !b3
+   30us   !b4  !b5
+   38us   !b6  !b7
+   46us    1    0   (busy marker)
+
+NTSC:
+   Time  Clock Data
+   ----------------
+    0us  0->1  (1)  (timing reference)
+   14us   !b0  !b1
+   24us   !b2  !b3
+   34us   !b4  !b5
+   44us   !b6  !b7
+   52us    1    0   (busy marker)
+
+The timing reference check on the clock line should be implemented as
+an actual check for a transition as the C64 sets the clock line low 53
+cycles (PAL) after the timing reference - if the sending device is fast
+enough, a simple check for clock high will misread the busy marker at
+the end as a start signal for the next byte.
+
+Sectors are read in sequence, only the data is transferred. Upon
+start and between the transmission of two bytes, the loader sets clock
+high, data low as "busy" marker. It appears that this loader does not
+transmit any end-of-file indication. No specific file is opened,
+instead the transfer starts with the last track/sector that was
+accessed which should correspond to the file open on secondary address
+0. The specific specs for a file transfer are as follows:
+
+- set clock high, data low
+- read current sector
+- transmit all bytes in file:
+  - set clock and data high
+  - (maybe delay clock check until 17us after clock/data high)
+  - wait until clock is high
+  - follow timing table above
+- exit (implicitly resets clock/data to high)
+
+
+
+EXOS V3
+=======
+The protocol used by the EXOS V3 kernal by J. Schemmel is exactly the same
+as the one used by the FC3, but it seems that the C64-side code is slightly
+less efficient - the delay between two tuples must be increased a bit
+(150us fails, 190us works, exact limit not tested) or loading will hang.
+
+Judging from the code differences and the relative release dates both
+are probably derived from a common source whose code was optimized in
+different ways by the two authors.
+
+There is also a kernal called "The Beast System" which is based on EXOS
+and uses the same fast loader code.
+
+SAVING
+======
+
+The FC3 first opens the file for writing, if this works well, it starts its
+drive code. This code receives and saves the data.
+
+The first byte marks the size of the block. If this byte is 0, a full block of
+254 bytes follows which is not the last one. If other numbers are received,
+n - 1 bytes will follow and this will be the last block. Note that transferred
+blocks do not correspond to disk sectors, as each full block has 254 bytes,
+also the first one which contains the start address.
+
+The drive releases DATA to show that it's ready to receive data. Then the C64
+releases CLOCK to synchronize the file transfer.
+
+The following diagram shows the position of each bit being transfered. The bits
+are send low-active.
+
+C64 write (PAL)
+0   (+12)   12  (+10) 22    (+16)    38  (+10) 48  (+10) 58               cycle
+|-----------|---------|--------------|---------|---------|---------------
+0           11.8      21.7           37.4      47.3      57.1                us
+CLOCK high  D=5       D=4            D=1       D=0       CLOCK low
+(sync)      C=7       C=6            C=3       C=2       (busy)
+
+sd2iec read
+|----------------|------------|-----------|---------|--------------------
+0     (+17)      17   (+13)   30  (+12)   42  (+10) 52                       us
+
+After reading the last pair of bits the drive pulls DATA down to show it's
+busy. Apparently there's no mechanism to signal situations like "disk full".

@@ -1,0 +1,281 @@
+201x-xx-xx - release 1.0.0
+        - Bugfix: use valid default date if RTC is not detected
+        - formatting for D71/D81/DNP images
+        - DolphinDOS parallel speeder support
+        - PREV button mounts last line of autoswap.lst
+        - removed XB command
+        - explicit PETSCII marker in swaplists
+        - load previous file when "*" is used
+        - redirect C128 boot sector to bootsect.128 on FAT
+        - ISO8601-like format for T-R and T-W
+        - autoswap list generation
+        - persistent mini-filesystem in EEPROM
+        - Maniac Mansion + Zak McKracken loaders
+
+2012-02-26 - release 0.10.3
+        - Bugfix: Un-break I2C display communication
+
+2011-12-18 - release 0.10.2
+        - Bugfix: End of generated raw directory was incorrect
+        - Bugfix: Various compilation fixes when fastloaders are disabled
+        - ULoad M3 automatically exits when ATN becomes active
+        - Minor code space improvements
+        - New fastloader: ELoad Version 1 (EasyProg)
+
+2010-12-25 - release 0.10.1
+        - Bugfix: Remove remains of previous commands while parsing B-*
+        - Bugfix: Fix response of UI command for unknown suffix chars
+        - small improvement of JiffyDOS transfer speeds
+
+2010-11-07 - release 0.10.0
+        - Deprecation notice:
+          E-R and E-W commands will be removed in the next release
+        - Improved reliability of Nippon loader
+
+2010-10-31 - release 0.10.0pre5
+        - Bugfix: Avoid duplicate file name when DEL/DIR matches
+        - Bugfix: Reduce chance of data corruption in Wheels
+        - Bugfix: Slightly relax IEC timing while waiting for command
+        - Added AR6 1581 fastloader+saver (PAL)
+
+2010-10-26 - release 0.10.0pre4
+        - Bugfix: Wheels with SuperCPU timing issue corrected
+        - Bugfix: Rare problem with ~ in FAT file names fixed
+        - Added compile-time option to capture fastloader code
+        - Added Wheels 4.4 fast loaders
+        - Added another variation of the Epyx Fastload cart
+        - Added Nippon fast loader
+
+2010-10-16 - release 0.10.0pre3
+        - Bugfix: Wheels 128 loader detection fixed
+        - Added a second Epyx Fastload variation
+
+2010-10-15 - release 0.10.0pre2
+        - Bugfix: G-P answer fixed
+        - Bugfix: Strip 0x0d from file names when appropiate
+        - Wheels support
+
+2010-08-06 - release 0.10.0pre1
+        - GEOS 2.0 support (d64/d71/d81 images only)
+        - File-based M-R emulation
+        - Removed "oldnkc" configuration
+
+2010-08-02 - release 0.9.3
+        - Bugfix: Extension hiding works again with names >12 characters
+        - Bugfix: Increase data hold time during standard TALK
+        - Testing aid: card detect-to-LED function
+
+2010-06-21 - release 0.9.2
+        - Bugfix: Rename was broken on FAT
+        - Turbodisk is now disabled when running on internal RC clock
+        - button debounce timeout increased
+
+2010-03-07 - release 0.9.1
+        - Bugfix: Filling unused REL records used wrong offsets
+        - Bugfix: Unbreak case-insensitive matching of FAT file names
+        - Bugfix: Fix raw directory mode for D64/D71/D81
+        - Bugfix: Tell the display about REL files too
+        - add preliminary support for the ATmega1284P
+
+2010-02-28 - release 0.9.0
+        - Bugfix: REL offset calculation for records 256,512,...
+        - Bugfix: Non-REL P command parameters now match README
+        - Bugfix: Reading after EOI behaves correctly now
+        - Red LED only active while unwritten data in memory
+        - Remove XC,XJ commands
+        - New fastloader: ULoad Model 3
+        - New fastloader: G.I. Joe (said to be commonly ripped)
+        - New fastloader: Epyx FastLoad cartridge
+        - Support reading raw directory ($ with secondary > 0)
+        - "display disk images as directories"-mode
+        - DNP support
+        - remote display support
+        - build system doesn't require gawk anymore
+
+2009-12-16 - release 0.8.3
+        - Bugfix: Really prevent random corruption on FAT32 media
+        - Bugfix: Free buffer after copying files
+
+2009-09-27 - release 0.8.2
+        - Bugfix: Prevent random storage corruption on FAT32 media
+        - Bugfix: Image files not mountable if read-only file or media
+        - Bugfix: Do not clear error channel if sec. 15 is closed
+        - Add a dummy RTC read during init (to update year if required)
+        - Enable I2C RTC support in LarsP configuration for Final Expansion 3
+        - Acknowledge ATN during initialisation to stall C64 if required
+
+2009-05-24 - release 0.8.1a
+        - Fix bootloader version number generation
+
+2009-05-20 - release 0.8.1
+        - Fix uIEC/IDE SD card change detection
+        - Dreamload support for uIEC
+        - Mark the RTC time as valid after setting the clock
+        - Delay SPI initialisation until absolutely required
+        - Show disk change confirmation even when the error blink is active
+        - Exit the FC3 fastloader if ATN is active
+        - Fix indentation of 1000+ block files
+        - Remove 0-byte from the long version message
+        - Fix multiple save-with-replace bugs
+        - Ignore directories when matching file name wildcards
+
+2009-03-08 - release 0.8.0
+        - direct sector access of the real storage device
+        - ignore DEL files in file_open
+        - drive mapper
+        - EXOS V3 fastloader support
+        - requires avr-libc 1.6.x
+
+2008-10-02 - release 0.8.0pre1
+        - Implement Dreamload emulation
+        - RTC support
+        - Dataflash support
+        - Multi-file scratch
+        - Copy command
+        - Large buffer support
+        - Final Cartridge 3 freezed file fastloader support
+        - D71/D81 disk image support
+        - parse FSINFO sector for faster FAT32 free space calculation
+        - partial REL file support
+
+2008-07-09 - release 0.7.3
+        - Bugfix: Free buffers on error in M2I and D64
+          (fixes "D64 size increases to 1.1M when its free space runs out")
+
+2008-06-10 - release 0.7.2
+        - Bugfix: rename doesn't corrupt files with hidden extensions anymore
+        - Bugfix: RD works again
+        - Bugfix: On uIEC the ATN ACK interrupt was never disabled
+        - case-insensitive matching of FAT filenames
+
+2008-06-05 - release 0.7.1
+        - Bugfix: Mark sectors 18/0 and 18/1 as used during D64 format
+        - Bugfix: Single-char dir patterns are directory numbers
+        - Bugfix: Short N: on D64 should clean only the first dir sector
+        - case-insensitive matching of FAT filenames
+        - ask the AR6 to not use its fastloader/-saver
+
+2008-05-02 - release 0.7.0
+        - does not support the ATmega32 anymore
+        - Match trailing part of names after * too
+          + option to disable that
+        - Multi-drive/partition support
+        - Dual SD card support (some configurations)
+        - Rename
+        - transparent support for P/S/U/R00 files (read+create)
+          + option to disable x00 writing
+        - file-type suffix detection+generation
+          + option to disable that
+        - Final Cartridge III fast-load/save
+        - Sleep mode
+        - Extended swaplist navigation (next/prev/home)
+        - extended version query
+        - CMD-style timestamped short directory listings
+        - CMD-style partition directory
+        - CMD-style G-P command (get partition info)
+        - FAT32 free block count can be disabled
+        - D64 error info block parsing
+        - stricter, but better parser (supports wildcards in path names)
+
+2008-03-27 - release 0.6.4
+        - Change some details of the SD card initialisation
+        - Bugfix: Initialize cards only when sd2iec is accessed to avoid
+                  hogging the bus during this time.
+        - Prepare NKC configuration for bootloader and mega644
+
+2008-03-19 - release 0.6.3
+        - Bugfix: Ignore trailing separation characters of B-* parameters
+        - Bugfix: Always ignore volume labels while scanning for LFNs
+        - Bugfix: SDHC was always disabled in 0.6.x
+        - Bugfix: Ignore spaces in drive number
+        - Bugfix: Fix possible error after changing partitioned cards
+        - Bugfix: Case-insensitive name matching in the FAT library
+                  (but not in sd2iec)
+        - Bugfix: Fix compile error with larsp configuration on mega644
+        - Wait for the release of the disk change key before trying to
+          access a swap list
+        - Remove some ancient not-true-anymore statements from README
+        - Improve sector read performance
+        - Reduce unecessary reads during seeking
+ 
+2008-02-24 - release 0.6.2
+        - Bugfix: Read the correct pins when determining the device
+                  address in LarsP and NKC configurations
+
+2008-02-22 - release 0.6.1
+        - support for NKC MMC2IEC boards (untested)
+        - case-insensitive matching of M2I and D64
+
+2008-02-20 - release 0.6
+        - Bugfix: Properly emulate B-R/B-W (fixes Pirates!)
+        - Bugfix: Close buffers on I (fixes Drazpaint)
+        - Bugfix: Create new error message after closing channel 15
+        - Bugfix: Check for illegal track/sector while D64 is active
+        - reworked source configuration system
+        - externalized bootloader signature generation
+        - Support for long file names on FAT
+        - M-R returns (random) data
+        - New commands E-R, E-W: Read/write reserved area of EEPROM
+        - Added U0> for device address changes
+        - device address is stored in the EEPROM
+        - Directories starting with . are hidden in FAT
+        - support for sd2iec 1.0 PCBs
+
+2008-01-13 - release 0.5.1
+        - Bugfix: Really disable JTAG - fixes very slow access on some
+          hardware variants
+
+2008-01-12 - release 0.5
+        - Bugfix: Recode ~/pi in both directions
+        - Bugfix: Fastloaders now work on LarsP-style hardware too
+        - Disk change key support
+        - Full JiffyDos support
+        - EEPROM configuration storage
+        - Full support for D64, read/write/sector access
+
+2007-12-25 - release 0.4.2
+        - Bugfix: LarsP-style hardware actually works now
+
+2007-12-19 - release 0.4.1
+        - Bugfix: Creating a new file within an M2I image wrote
+                  a terminating zero byte into the M2I directory entry
+        - Bugfix: Another guesstimated delay in iec_putc
+        - AVR Studio project file updated
+
+2007-12-07 - release 0.4
+        - Extended DOS commands:
+          - Enable/Disable JiffyDOS
+          - Set oscillator calibration
+        - Full support for M2I images
+
+2007-11-29 - release 0.3
+        - disable interrupts during iec_getc
+        - add full CRC checking in SD code with retries on errors
+        - software fastloader support: Turbodisk protocol
+        - card change detection
+        - better file name parsing
+        - directory loading supports wildcards
+        - support for file overwrite (@)
+        - option to display hidden files in directory
+        - filename matching for open
+        - filename matching for scratch
+
+2007-11-02 - release 0.2.1
+        - bugfix: Don't cause repeated entries at the end of the directory
+        - bugfix: Don't repeast the last block of a saved file (1:256 chance)
+        - bugfix: Increase all timeouts in the card initialisation
+        - Recode 0xff in filenames to ~, both characters map to the pi
+          symbol on the C64
+
+2007-11-01 - release 0.2
+        - conditional compilation via make command line for chip type
+          and IO pin assignment (Shadowwolf/LarsP)
+        - object files are generated in a subdirectory
+        - bug fixes in IEC and buffer handling
+        - added project file for AVR Studio (untested)
+        - support for subdirectories
+        - support for UI+/UI- commands (faster bus for VC20)
+        - slightly improved command parser
+
+2007-10-16 - release 0.1
+        Initial release

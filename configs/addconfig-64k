@@ -1,0 +1,11 @@
+# This is not actually a -*- makefile -*- but it looks nicer
+# if it uses the same syntax-highlighting ;)
+#
+# configuration addon for atmega644 chips with a few features disabled
+
+CONFIG_MCU=atmega644p
+CONFIG_REMOTE_DISPLAY=n
+CONFIG_M2I=n
+CONFIG_P00CACHE=n
+NAME_OVERRIDE=mini
+CONFIG_HAVE_EEPROMFS=n

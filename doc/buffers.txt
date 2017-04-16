@@ -1,0 +1,54 @@
+Notes on buffer_t and its use
+-----------------------------
+
+buffer_t is the struct holding all information for the dynamically allocated
+buffers in sd2iec. Usually they are associated with a secondary address,
+but they can also be used for internal purposes, e.g. to read the file
+names in a swaplist or to store the BAM of a mounted disk image.
+
+If you allocate a temporary buffer or do an early return from a function
+that has allocated a buffer for some purpose you do not need to do
+anything - every buffer returned from alloc_buffer or alloc_system_buffer
+is maked as "not sticky" which means that it will get freed without calling
+the cleanup function at the end of the IEC mainloop.
+
+If you do need a buffer that should stay around for longer than that
+(e.g. for a buffer associated with a file), call stick_buffer(buffer_t *)
+on it. After doing this you need to make sure that free_buffer(buffer_t *)
+is called on the buffer when it isn't needed anymore.
+
+Another independent distinction in buffer types is system buffers vs.
+user buffers. alloc_system_buffer will return a buffer with the secondary
+field set to BUFFER_SEC_SYSTEM while alloc_buffer returns a buffer
+with the secondary field set to 0. This difference is used when updating
+the device LEDs - the number of allocated user buffers is tracked in
+active_buffers and the BUSY LED will be turned on by alloc_buffer
+and off by free_buffer as long as at least one user buffer is allocated.
+Similiar to that the DIRTY LED is controlled by mark_write_buffer and
+free_buffer - please do not call mark_write_buffer on a system buffer.
+
+free_multiple_buffers takes a flag parameter which specifies which buffer(s)
+should be freed. It is a bit field with the following base values:
+ - FMB_CLEAN
+     Call the cleanup callback before freeing the buffer. If this is
+     specified, the return value of free_multiple_buffers will be 1 if
+     any of the called cleanup functions returned a non-zero value
+     or 0 otherwise.
+ - FMB_FREE_STICKY
+     Free sticky buffers too (will free only not-sticky buffers otherwise)
+ - FMB_FREE_SYSTEM
+     Free system buffers too (will free only non-system buffers otherwise)
+
+For convenience there are a few macros for common use cases:
+ - FMB_ALL
+     free all buffers, no cleanups
+ - FMB_ALL_CLEAN
+     free all buffers and call their cleanup functions
+ - FMB_USER
+     free all non-system buffers, no cleanups
+ - FMB_USER_CLEAN
+     free all non-system buffers and call their cleanup functions
+ - FMB_UNSTICKY
+     free all non-sticky buffers, no cleanups
+ - FMB_UNSTICKY_CLEAN
+     free all non-sticky buffers and call their cleanup functions

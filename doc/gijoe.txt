@@ -1,0 +1,97 @@
+G.I. Joe Loader Protocol
+========================
+
+Documented by Ingo Korb
+
+Said to be the most-ripped IRQ loader, although only three programs using
+it have been located yet:
+- G.I. Joe
+- Crown (cracked by Sharks)
+- Cucumber Juice II by Hitmen (switch to IRQ loader mode manually)
+
+Each of these uploads the drive code with M-W statements of different
+length, but all of them send the commands in increasing memory address
+order. A CRC-based detection scheme may need to compare the CRC after
+every byte instead of every command to trigger reliably.
+
+The protocol used in this loader is completely synchronous, triggered
+by both edges of the CLK line; ATN is unused but may change anyway
+in some implementations of the C64 side.
+
+High Level
+==========
+
+After the M-E command has been received, set both DATA and CLK high
+and disable ATN acknowledge. The original drive code uses a slightly
+weird loop to wait until the bus is completely idle at this point,
+simply waiting 10 milliseconds and then looping until both DATA and
+CLK are high seems to be sufficient.
+
+Main loop
+---------
+1) Set CLK low
+2) Wait until DATA is low
+3) Set CLK high
+4) Read a byte, discard it
+5) Read two bytes
+6) Set CLK low
+7) Try to open a file whose name starts with the two bytes received in step 5
+8) If not successful, send error and restart main loop
+9) Send file contents
+10) Send 0xac 0xff
+11) (Close file if neccessary)
+12) Restart main loop
+
+Sending file contents
+---------------------
+1) Send file in blocks of 254 bytes (or less for the last block):
+  2) Set CLK high
+  3) Send all bytes in file order - if byte is 0xac, send twice
+  4) If another block is available to send:
+    5) Send 0xac 0xc3
+    6) Set CLK low
+5) Send 0xac 0xff as end marker
+6) (Close file if necessary)
+
+If a read error is encountered while sending the file contents,
+send error and return to main loop.
+
+Sending error
+-------------
+1) Set CLK high
+2) Send 0xfe 0xfe 0xac 0xf7
+3) (Close file if neccessary)
+
+Low Level
+=========
+
+Receiving a byte
+----------------
+1) byte = 0
+2) Repeat 4 times:
+  3) Wait until CLK is low
+  4) delay ~2-5 microseconds
+  5) byte = byte >> 1
+  6) Read DATA
+  7) If DATA was low in step 6: byte = byte | 0x80
+  8) Wait until CLK is high
+  9) delay ~2-5 microseconds
+ 10) byte = byte >> 1
+ 11) Read DATA
+ 12) If DATA was low in step 11: byte = byte | 0x80
+
+Note: The delays in step 4 and 9 are recommended because the C64 sets
+      both the clock and data line at the same time. A small
+      difference in propagation time between the two lines can easily
+      cause data corruption when the delay is too small.
+
+Sending a byte
+--------------
+1) Repeat 4 times:
+  2) Wait until CLK is high
+  3) Set data to (byte & 1)
+  4) byte = byte >> 1
+  5) Wait until CLK is low
+  6) Set data to (byte & 1)
+  7) byte = byte >> 1
+

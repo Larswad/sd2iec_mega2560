@@ -1,0 +1,66 @@
+# This may not look like it, but it's a -*- makefile -*-
+#
+# sd2iec - SD/MMC to Commodore serial bus interface/controller
+# Copyright (C) 2007-2014  Ingo Korb <ingo@akana.de>
+#
+#  Inspired by MMC2IEC by Lars Pontoppidan et al.
+#
+#  FAT filesystem access based on code from ChaN, see tff.c|h.
+#
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; version 2 of the License only.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software
+#  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#  config: User-configurable options to simplify hardware changes and/or
+#          reduce the code/ram requirements of the code.
+#
+#
+# This file is included in the main sd2iec Makefile and also parsed
+# into autoconf.h.
+
+CONFIG_ARCH=avr
+CONFIG_MCU=atmega1281
+CONFIG_LINKER_RELAX=y
+CONFIG_MCU_FREQ=8000000
+CONFIG_BOOTLOADER=y
+CONFIG_BOOT_DEVID=0x33304955
+CONFIG_UART_DEBUG=y
+CONFIG_UART_BAUDRATE=38400
+CONFIG_UART_BUF_SHIFT=6
+CONFIG_DEADLOCK_ME_HARDER=n
+CONFIG_COMMAND_CHANNEL_DUMP=y
+CONFIG_LOADER_TURBODISK=y
+CONFIG_LOADER_FC3=y
+CONFIG_LOADER_DREAMLOAD=y
+CONFIG_LOADER_ULOAD3=y
+CONFIG_LOADER_GIJOE=y
+CONFIG_LOADER_EPYXCART=y
+CONFIG_LOADER_GEOS=y
+CONFIG_LOADER_WHEELS=y
+CONFIG_LOADER_NIPPON=y
+CONFIG_LOADER_AR6=y
+CONFIG_LOADER_ELOAD1=y
+CONFIG_HARDWARE_VARIANT=7
+CONFIG_HARDWARE_NAME=uIEC
+CONFIG_TWINSD=n
+CONFIG_SD_AUTO_RETRIES=10
+CONFIG_SD_DATACRC=y
+CONFIG_ERROR_BUFFER_SIZE=100
+CONFIG_COMMAND_BUFFER_SIZE=254
+CONFIG_BUFFER_COUNT=15
+CONFIG_MAX_PARTITIONS=20
+CONFIG_RTC_SOFTWARE=y
+CONFIG_HAVE_IEC=y
+CONFIG_M2I=y
+CONFIG_HAVE_EEPROMFS=y
+CONFIG_LOADER_MMZAK=y
+CONFIG_LOADER_N0SDOS=y

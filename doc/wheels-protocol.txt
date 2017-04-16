@@ -1,0 +1,405 @@
+Wheels fast loader protocol
+===========================
+
+Documented by Ingo Korb
+
+Wheels 4.4 note
+---------------
+Although the analyzed pre-4.4 versions of wheels had a nice,
+consistent loader design with just two different byte
+transmission/reception variations and a fully compatible protocol
+between all drive types, Wheels 4.4 ditched that for some reason. The
+protocol is still similiar to the previous versions, but there are
+some important differences which depend on the drive type. The pre-4.4
+versions are used as the baseline in this document, changes in 4.4 are
+noted where appropiate.
+
+Low-Level byte transmission
+---------------------------
+Both data and clock should be set to high already from previous
+operations. Using the high->low transition of clock as a timing
+reference, send bits as shown in the following table. For older
+versions of Wheels the timing and bit order only differs between 1MHz
+(154) and 2MHz (everything else) drives. Wheels 4.4 runs the 1571 in
+1MHz mode using the 1541 timing from previous Wheels versions and
+uses a slowed-down timing for the 1581 and CMD drives.
+
+1541 (all versions) and 1571 (Wheels 4.4):
+   Time  Clock Data
+   ----------------
+    0us  1->0  (1)  (timing reference)
+    9us   !b3  !b1
+   23us   !b2  !b0
+   37us   !b7  !b5
+   51us   !b6  !b4
+   73us    -    -   (hold time so the C64 has time to read b6/b4)
+
+2MHz (Wheels pre-4.4 - identical to GEOS 1581 with Configure 2.1):
+   Time  Clock Data
+   ----------------
+    0us  1->0  (1)  (timing reference)
+    7us    b0   b1
+   14us    b2   b3
+   24us    b4   b5
+   33us    b6   b7
+   45us    -    -   (hold time so the C64 has time to read b6/b7)
+
+1581/CMD (Wheels 4.4):
+   Time  Clock Data
+   ----------------
+    0us  1->0  (1)  (timing reference)
+    7us    b0   b1
+   15us    b2   b3
+   26us    b4   b5
+   37us    b6   b7
+   52us    -    -   (hold time so the C64 has time to read b6/b7)
+
+
+Low-Level byte reception
+------------------------
+Both data and clock should be set to high already from previous
+operations. Using the high->low transition of clock as a timing
+reference, receive bits as shown in the following table. The timing
+and bit order differs for 1MHz (1541) and 2MHz (everything else)
+drives:
+
+1MHz (Wheels pre-4.4):
+   Time  Clock Data
+   ----------------
+    0us  1->0  (1)  (timing reference)
+   16us   !b7  !b5
+   26us   !b6  !b4
+   41us   !b3  !b1
+   54us   !b2  !b0
+
+2MHz (Wheels pre-4.4 - identical to GEOS 2MHz timing):
+   Time  Clock Data
+   ----------------
+    0us  1->0  (1)  (timing reference)
+   15us   !b4  !b5
+   29us   !b6  !b7
+   39.5us !b3  !b1
+   50.5us !b2  !b0
+
+1541/1571 (Wheels 4.4):
+   Time  Clock Data
+   ----------------
+    0us  1->0  (1)  (timing reference)
+   17us   !b7  !b5
+   28us   !b6  !b4
+   45us   !b3  !b1
+   61us   !b2  !b0
+   81us   -    -    (recommended delay before returning)
+
+1581/CMD (Wheels 4.4):
+   Time  Clock Data
+   ----------------
+    0us  1->0  (1)  (timing reference)
+   15us   !b0  !b1
+   26us   !b2  !b3
+   37us   !b4  !b5
+   48us   !b6  !b7
+   60us   -    -    (recommended delay before returning)
+
+
+Receiving a block
+-----------------
+Data is transferred from the C64 to the drive in blocks of variable
+size from 1-256 bytes. A block transfer of k bytes happens as follows:
+
+- wait until clock is high
+- set data high
+(- delay 15us?)
+- receive k bytes, starting at the end of the buffer
+- Wheels 4.4 only: Wait until clock is low
+- set data low
+
+Unlike GEOS, the block length is always determined on the drive
+side. The only sizes used are 4 bytes for commands and 256 bytes when
+receiving a sector to write.
+
+Transmitting a block
+--------------------
+When transferring data to the C64 the block size is variable from 1 to
+256 bytes and is not explicitly sent to the computer. A block transfer
+of k bytes happens as follows:
+
+- wait until clock is high
+- set data and clock high
+- transmit all k data bytes, starting with the last byte
+- delay 20us
+- Wheels pre-4.4 and 4.4 on 1541/1571:
+  - set data low, clock high
+  - wait until clock is low
+- Wheels 4.4 on 1581/CMD
+  - set data and clock high
+  - wait until clock is low
+  - set data low
+
+
+Parallel block transfer (HD only)
+---------------------------------
+Note: This section is based on a disassembly of the drive code only
+and has not been verified in reality.
+
+Wheels can utilize the parallel port of the CMD HD for increased
+transfer speed. Before every block transfer the drive checks if a flag
+byte at $031e (inside the drive code) has bit 7 set - if it is set,
+parallel mode is used instead of the serial transfer described
+above. The flag is never set within the drive code, it is assumed that
+it'll be set when the code is uploaded (if at all). The flag is reset
+in the drive code in a single place - if the high byte of the RPC
+address is anything except $03, the code calls STATUS, sets clock/data
+high, clears the parallel flag and runs QUIT to exit.
+
+NOTE: Wheels 4.4 does not use the serial port at all after starting
+the drive code with the parallel mode flag set. Instead of waiting for
+a certain state on the clock line it waits for the inverted state on
+bit 6 of port B (PB6) of the 8255 and instead of setting the data line low
+or high it sets bit 7 of port C (PC7) of the 8255 to high/low. It is
+currently assumed that those two pins are connected to the handshake
+lines of the parallel connector of the HD, but it is not known if this
+connection is inverted or not.
+
+Parallel block reception pre-4.4
+--------------------------------
+The parallel block reception is called instead of the standard block
+reception subroutine and expects a byte count (1-256) as parameter.
+
+- wait until clock is high
+- set data and clock high
+- reception loop:
+  - wait until clock is low
+  - read parallel port
+  - set data low
+  - store received byte
+  - decrement count
+  - exit loop if count is now 0
+
+  - wait until clock is high
+  - read parallel port
+  - set data high
+  - store received byte
+  - decrement count
+  - exit loop if count is now 0
+- wait until clock is low (always, exit point in loop doesn't matter)
+- set data low (same)
+
+Parallel block reception 4.4
+----------------------------
+Again the parallel block reception is called instead of the standard
+block reception subroutine.
+
+- reception loop (one iteration per byte):
+  - wait until PB6 is 0
+  - read parallel port
+  - set PC7 to 1
+  - wait until PB6 is 1
+  - set PC7 to 0
+  - store received byte
+
+Parallel block transmission pre-4.4
+-----------------------------------
+The parallel block transmission is called instead of the standard
+block transmission subroutine and expects a byte count (1-256) as
+parameter.
+
+- set parallel port to output
+- wait until clock is high
+- set clock and data high
+- transmission loop:
+  - wait until clock is low
+  - read next data byte
+  - send byte to parallel port
+  - set data low
+  - wait until clock is high
+  - decrement count
+  - exit loop if count is now 0
+
+  - read next data byte
+  - send byte to parallel port
+  - set data high
+  - decrement count
+  - exit loop if count is now 0
+- set clock/data high
+- wait until clock is low
+- set data low
+- set parallel port to input
+
+Parallel block transmission 4.4
+-------------------------------
+Again the parallel block transmission is called instead of the
+standard block transmission subroutine.
+
+- set parallel port to output
+- reception loop (one iteration per byte):
+  - read next data byte
+  - wait until PB6 is 0
+  - send byte to parallel port
+  - set PC7 to 1
+  - wait until PB6 is 1
+  - set PC7 to 0
+- set parallel port to input
+
+Stage 1 loader
+--------------
+Note: This stage is only used for 1541/1571 drives, all others load
+the system file with standard KERNAL calls.
+
+The stage 1 loader is a fixed-filename loader that searches for a
+predetermined file and transmits it to the computer. The file name is
+"SYSTEM1" for the C64 version and "128SYSTEM1" for the C128. In the
+1541 loader it is located at $5d9 in drive memory, the number of
+characters compared is at $597. The name in drive memory is terminated
+with a $a0 character that is included in the comparision.
+
+The stage 1 loader does the following:
+- wait until clock is low
+- set data low
+- attempt to open the target file (SYSTEM1 or 128SYSTEM1)
+  - return to the dos main loop if the file wasn't found
+- transfer each sector of the file:
+  - wait until clock is high
+  - set clock/data high
+  - transmit the sector contents starting at the end
+  - set data low
+  - wait until clock is low
+  - advance to the next sector in the chain
+  - exit after the last sector of the file was transferred
+- wait until clock is low
+- set clock/data high
+- return to the dos main loop
+
+
+Stage 2 functions
+=================
+Note: Addresses are for Wheels versions before 4.4. In 4.4 the jump
+table is moved to 0403 for the 1541/1571, to 0503 for the CMD FD/HD,
+but stays at 0303 for the 1581.
+
+Exiting the fastloader (QUIT - 0303)
+------------------------------------
+This function exits the fast loader and returns to the standard dos
+main loop. Wheels may restart the loader with M-E without re-uploading
+the drive code.
+
+- wait until clock is high
+- set clock/data high
+- return to the dos main loop
+
+Writing a sector (WRITE - 0306)
+-------------------------------
+This function receives a sector (256 bytes) and writes them to the
+track/sector already received in the function call. After writing it
+jumps to the STATUS function.
+
+Reading a sector (READ - 0309)
+------------------------------
+This function reads the track/sector that was received together with
+the function address and transmits it to the computer. Regardless of
+the success of the read operation, the full 256 bytes of data are
+always transmitted as a block transfer. After transmitting the sector
+data the loader jumps to the STATUS function.
+
+Reading a sector link pointer (READLINK - 030c)
+-----------------------------------------------
+This function works exactly as READ, but transmits only the first two
+bytes of the sector instead of its full contents.
+
+Transmitting the job result (STATUS - 030f)
+-------------------------------------------
+This function uses the block transfer operation to transmit a single
+byte to the C64. This byte is the job result code from the buffer that
+is used for disk operations.
+
+Calculating the number of free blocks (NATIVE_FREE - 0312)
+----------------------------------------------------------
+This function calculates the number of free blocks in a CMD native
+partition. The first parameter byte is the sector number of the last
+BAM sector that should be read, the second parameter is the last
+byte in that sector that should be added into the result ($00 means
+every byte). Currently there has been no situation observed in which
+those two parameters had values that would limit the calculation to
+less than the entire partition.
+
+The function transmits two bytes to the C64 which are the number of
+free sectors in the current partition (must be CMD native, but isn't
+used for anything else anyway) in little-endian byte order. After
+transmitting this function calls the STATUS function.
+
+Reading the current partition and dir (GET_CURRENT_PART_DIR - 0315)
+-------------------------------------------------------------------
+This function transmits three bytes to the C64. The first two are the
+track and sector of the directory head sector of the current directory
+in the current partition, the third is the number of the current
+partition (1-based as usual).
+
+Setting the current partition and dir (SET_CURRENT_PART_DIR - 0318)
+-------------------------------------------------------------------
+This function changes the current directory and/or partition. It
+received three bytes from the C64. The third byte is the new current
+partition (0 indicates no change), the first two bytes are used as the
+current directory head track and sector in that partition.
+
+Checking for disk change (CHECK_CHANGE - 031b)
+----------------------------------------------
+This function transmits a single byte to the computer using the block
+transfer operation. The byte is either $00 if the disk was not changed
+or $03 if it was. On a 1541 the flag value is obtained from address
+$1c which will be set on a disk change, but is not reset at all while
+the loader is running. If this function returns a "disk changed"
+state, Wheels will exit the loader and send the Initialize dos
+command. A simple implementation that always returns $03 works fine
+for 1541/71/81 modes, but will fail if a CMD FD is emulated.
+
+In Wheels 4.4 an implementation that always returns $03 will fail for
+every drive type (except HD). For a 1571 Wheels 4.4 expects a return
+value of 0 for single-sided disks or $80 for double-sided disks (value
+taken from byte 4 of sector 18/0).
+
+
+Stage 2 loader
+--------------
+The stage 2 loader uses a remote function call system similiar to the
+GEOS 2.0 stage 2/3 loaders. It starts with a simple handshake:
+
+- wait until clock is low
+- set data low
+
+After that it starts its main loop:
+
+- wait until clock is high
+- turn on drive LED
+- receive 4 bytes (in transmission order: sector, track, highbyte, lowbyte)
+- jump to the address received
+- wait until clock is low
+- turn off drive LED
+- restart loader main loop
+
+Unlike the GEOS loaders Wheels calls every function using a jump table
+located at $0303-$031d, so the addresses transmitted are the same for
+every drive type.
+
+0303: QUIT
+0306: WRITE
+0309: READ
+030c: READLINK
+030f: STATUS
+0312: NATIVE_FREE
+0315: GET_CURRENT_PART_DIR
+0318: SET_CURRENT_PART_DIR
+031b: CHECK_CHANGE
+
+NOTE: Wheels 4.4 moves the jump table to 0403 on the 1541 and 1571 or
+0503 on the CMD FD/HD, but the functions and their order is the same.
+
+For CMD drives there are two variations of the loader - one is used
+for native partitions and implements NATIVE_FREE and
+GET_CURRENT_PART_DIR, the other is used for 1581 partitions and omits
+those two functions.
+
+The CMD FD is the only drive that implements all of these
+functions. For the HD, the CHECK_CHANGE function is always dummied out
+(nop/nop/rts), for standard Commodore drives the NATIVE_FREE,
+GET_CURRENT_PART_DIR and SET_CURRENT_PART_DIR functions are dummied
+out (nop/nop/rts).

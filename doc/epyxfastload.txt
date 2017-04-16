@@ -1,0 +1,61 @@
+Epyx Fast Load Cartridge Protocol
+=================================
+
+Documented by Ingo Korb
+
+This document describes the fast loader protocol used by the
+Epyx Fast Load cartridge. The cartridge has some other options that also
+upload custom drive code, but those are beyond the scope of this file.
+
+General
+-------
+The Epyx Fast Load cartridge (EFL) uses a two-stage upload process. The
+first stage is sent using M-E and executes at 0x1a9. This first stage
+receives another 256 bytes from the computer and jumpts to that code.
+
+First stage protocol
+--------------------
+The first stage sets data high and clock low and waits until data is low.
+It then releases clock and reads 256 bytes using the same protocol as
+G.I.Joe (see that document). There are at least two versions of the
+second stage, but they are protocol-compatible. Both don't need the
+full 256 bytes that are uploaded - only 237/238 bytes are actually
+used during execution. XORing the first 237 bytes together yields a
+result of 0x91 and 0x5b respectively.
+
+Second stage protocol
+---------------------
+The second stage also uses the same byte reception protocol as the G.I.Joe
+loader. It first receives one byte which is the length of the file name
+to be read and then receives that many bytes for the file name, starting
+with the last character of the name.
+
+After receiving the file name, clock is pulled low and the file is opened.
+If opening fails, set clock high and return to the standard dos idle loop.
+
+Every sector of the file is transferred in order. First data and clock
+are released, then the actual number of bytes following is sent
+(byte transfer protocol described below), then the data bytes of
+the sector. If another sector is following, pull clock low, read the
+data from the storage medium and repeat this process.
+
+After the last sector is transferred, set clock and data high and
+return to the standard dos idle loop.
+
+Sending a byte
+--------------
+To send a byte, set clock and data high, wait until data is low and send
+the inverted bits as shown in this table:
+
+Time Clk Data
+-------------
+ 0us  (1) 0->1  (data low -> high transition is the timing reference)
+10us  !b7 !b5
+20us  !b6 !b4
+30us  !b3 !b1
+40us  !b2 !b0
+60us  -    -
+
+The final delay is used to ensure that the C64 has time to read bit 2/0.
+The original drive code needs about 20-30 cycles to prepare the next
+byte for transmission.

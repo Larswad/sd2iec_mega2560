@@ -1,0 +1,91 @@
+ELoad Version 1 Protocol
+========================
+
+Eload Version 1 by Thomas Giesel, http://www.skoe.de/easyflash
+documented by Ingo Korb, Thomas Giesel
+
+ELoad Version 1 is based on ULoad Model 3, it uses a very similar protocol.
+It is a 2-bit byte-synchronizing fast loader that doesn't use ATN.
+
+Files are opened using the standard DOS procedure with secondary address 0.
+It opens the file and reads the first byte to check if the file exists and
+is readable. It does not close the file before starting the fast loader, so
+it just starts with the last sector loaded.
+
+ELoad detects sd2iec or uIEC directly by examining the ID string.
+
+ELoad has its own "idle loop" that reads a command byte and reacts
+accordingly. It aborts when the ATN line is low while waiting for
+synchronization in the byte receive or send subroutine.
+Version 1 supports "Load a file" only.
+
+"Idle loop"
+-----------
+1) Receive a byte
+2) If byte is 1, call "Load a file"
+5) Otherwise send a 0xff byte
+6) Go to 1
+
+Load a file (command code 1)
+----------------------------
+1) Start with the last file opened
+2) Read sector into buffer (up to 254 data bytes)
+   If reading failed: Send 0xff, return to Idle loop
+   If no data left (EOF): Send 0, return to Idle loop
+   Otherwise: Send number of bytes used in this sector
+3) Send that many data bytes
+4) Go to 2
+
+
+Low level
+=========
+
+Receiving a byte
+----------------
+1) set clock low, data high
+2) wait until data is low; if ATN is low return to the standard bus loop
+3) set clock high, data high
+4) wait until data is high
+5) transfer data (see table below)
+6) invert resulting byte
+7) delay for about 20 microseconds to make sure the C64 has returned
+   the bus to clock high/data high, otherwise the next send/receive
+   call can fail
+
+Sampling times for reception:
+
+Time Clk Data
+-------------
+ 0us (1) 0->1   (data low -> high transition in step 4 is the timing reference)
+14us  b7   b5
+24us  b6   b4
+38us  b3   b1
+48us  b2   b0
+
+The original transfer code reads the first data sample between 11us and 17us
+after the data line transition.
+
+Sending a byte
+--------------
+1) set clock high, data low
+2) wait until clock is low; if ATN is low return to the standard bus loop
+3) set clock high, data high
+4) wait until clock is high
+5) transfer data (see table below)
+6) set clock high, data high
+
+Timing for transmission:
+
+Time Clk Data
+-------------
+ 0us 0->1 (1)   (clock low -> high transition in step 4 is the timing reference)
+14us  b0   b1
+22us  b2   b3
+30us  b4   b5
+38us  b6   b7
+48us  1    1    (step 6)
+
+Note: Bits are sent without inversion, i.e. low for a 0-bit, high for a 1-bit.
+
+The original transfer code sends the first bit pair between 12us and 15us
+after the clock line transition.
