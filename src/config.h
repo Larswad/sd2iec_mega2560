@@ -1,26 +1,26 @@
 /* sd2iec - SD/MMC to Commodore serial bus interface/controller
-   Copyright (C) 2007-2017  Ingo Korb <ingo@akana.de>
+	 Copyright (C) 2007-2017  Ingo Korb <ingo@akana.de>
 
-   Inspired by MMC2IEC by Lars Pontoppidan et al.
+	 Inspired by MMC2IEC by Lars Pontoppidan et al.
 
-   FAT filesystem access based on code from ChaN and Jim Brain, see ff.c|h.
+	 FAT filesystem access based on code from ChaN and Jim Brain, see ff.c|h.
 
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; version 2 of the License only.
+	 This program is free software; you can redistribute it and/or modify
+	 it under the terms of the GNU General Public License as published by
+	 the Free Software Foundation; version 2 of the License only.
 
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
+	 This program is distributed in the hope that it will be useful,
+	 but WITHOUT ANY WARRANTY; without even the implied warranty of
+	 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	 GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+	 You should have received a copy of the GNU General Public License
+	 along with this program; if not, write to the Free Software
+	 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 
-   config.h: The main configuration header file which actually doesn't have
-             any configuration options in it anymore.
+	 config.h: The main configuration header file which actually doesn't have
+						 any configuration options in it anymore.
 
 */
 
@@ -47,8 +47,9 @@
 
 /* Generate a dummy function if there is no board-specific initialisation */
 #ifndef HAVE_BOARD_INIT
-static inline void board_init(void) {
-  return;
+static inline void board_init(void)
+{
+	return;
 }
 #endif
 
@@ -91,16 +92,16 @@ static inline void board_init(void) {
 
 /* ----- Translate CONFIG_RTC_* symbols to HAVE_RTC symbol ----- */
 #if defined(CONFIG_RTC_SOFTWARE) || \
-    defined(CONFIG_RTC_PCF8583)  || \
-    defined(CONFIG_RTC_LPC17XX)  || \
-    defined(CONFIG_RTC_DSRTC)
+		defined(CONFIG_RTC_PCF8583)  || \
+		defined(CONFIG_RTC_LPC17XX)  || \
+		defined(CONFIG_RTC_DSRTC)
 #  define HAVE_RTC
 
 /* calculate the number of enabled RTCs */
 #  if defined(CONFIG_RTC_SOFTWARE) + \
-      defined(CONFIG_RTC_PCF8583)  + \
-      defined(CONFIG_RTC_LPC17XX)  + \
-      defined(CONFIG_RTC_DSRTC)  > 1
+			defined(CONFIG_RTC_PCF8583)  + \
+			defined(CONFIG_RTC_LPC17XX)  + \
+			defined(CONFIG_RTC_DSRTC)  > 1
 #    define NEED_RTCMUX
 #  endif
 #endif

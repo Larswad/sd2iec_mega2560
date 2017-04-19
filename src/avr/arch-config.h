@@ -1,25 +1,25 @@
 /* sd2iec - SD/MMC to Commodore serial bus interface/controller
-   Copyright (C) 2007-2017  Ingo Korb <ingo@akana.de>
+	 Copyright (C) 2007-2017  Ingo Korb <ingo@akana.de>
 
-   Inspired by MMC2IEC by Lars Pontoppidan et al.
+	 Inspired by MMC2IEC by Lars Pontoppidan et al.
 
-   FAT filesystem access based on code from ChaN and Jim Brain, see ff.c|h.
+	 FAT filesystem access based on code from ChaN and Jim Brain, see ff.c|h.
 
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; version 2 of the License only.
+	 This program is free software; you can redistribute it and/or modify
+	 it under the terms of the GNU General Public License as published by
+	 the Free Software Foundation; version 2 of the License only.
 
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
+	 This program is distributed in the hope that it will be useful,
+	 but WITHOUT ANY WARRANTY; without even the implied warranty of
+	 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	 GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+	 You should have received a copy of the GNU General Public License
+	 along with this program; if not, write to the Free Software
+	 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 
-   arch-config.h: The main architecture-specific config header
+	 arch-config.h: The main architecture-specific config header
 
 */
 
@@ -30,6 +30,7 @@
 #include <avr/interrupt.h>
 /* Include avrcompat.h to get the PA0..PD7 macros on 1284P */
 #include "avrcompat.h"
+#include "utils.h"
 
 /* ----- Common definitions for all AVR hardware variants ------ */
 
@@ -66,48 +67,48 @@ typedef uint8_t rawbutton_t;
 
 /* Initialize all pins and interrupts related to SD - except SPI */
 static inline void sdcard_interface_init(void) {
-  /* card detect (SD1) */
-  DDRD  &= ~_BV(PD2);
-  PORTD |=  _BV(PD2);
-  /* write protect (SD1) */
-  DDRD &= ~_BV(PD6);
-  PORTD |= _BV(PD6);
-  /* card change interrupt (SD1) */
-  EICRA |= _BV(ISC00);
-  EIMSK |= _BV(INT0);
-  // Note: Wrapping SD2 in CONFIG_TWINSD may be a good idea
-  /* chip select (SD2) */
-  PORTD |= _BV(PD4);
-  DDRD |= _BV(PD4);
-  /* card detect (SD2) */
-  DDRD &= ~_BV(PD3);
-  PORTD |= _BV(PD3);
-  /* write protect (SD2) */
-  DDRD &= ~_BV(PD7);
-  PORTD |= _BV(PD7);
-  /* card change interrupt (SD2) */
-  EICRA |=  _BV(ISC90); // Change interrupt
-  EIMSK |=  _BV(INT9);  // Change interrupt
+	/* card detect (SD1) */
+	DDRD  &= ~_BV(PD2);
+	PORTD |=  _BV(PD2);
+	/* write protect (SD1) */
+	DDRD &= ~_BV(PD6);
+	PORTD |= _BV(PD6);
+	/* card change interrupt (SD1) */
+	EICRA |= _BV(ISC00);
+	EIMSK |= _BV(INT0);
+	// Note: Wrapping SD2 in CONFIG_TWINSD may be a good idea
+	/* chip select (SD2) */
+	PORTD |= _BV(PD4);
+	DDRD |= _BV(PD4);
+	/* card detect (SD2) */
+	DDRD &= ~_BV(PD3);
+	PORTD |= _BV(PD3);
+	/* write protect (SD2) */
+	DDRD &= ~_BV(PD7);
+	PORTD |= _BV(PD7);
+	/* card change interrupt (SD2) */
+	EICRA |=  _BV(ISC90); // Change interrupt
+	EIMSK |=  _BV(INT9);  // Change interrupt
 }
 
 /* sdcard_detect() must return non-zero while a card is inserted */
 /* This must be a pin capable of generating interrupts.          */
 static inline uint8_t sdcard_detect(void) {
-  return !(PIND & _BV(PD2));
+	return !(PIND & _BV(PD2));
 }
 
 /* Returns non-zero when the currently inserted card is write-protected */
 static inline uint8_t sdcard_wp(void) {
-  return PIND & _BV(PD6);
+	return PIND & _BV(PD6);
 }
 
 /* Support for a second SD card - use CONFIG_TWINSD=y in your config file to enable! */
 /* Same as the two functions above, but for card 2 */
 static inline uint8_t sdcard2_detect(void) {
-  return !(PIND & _BV(PD3));
+	return !(PIND & _BV(PD3));
 }
 static inline uint8_t sdcard2_wp(void) {
-  return PIND & _BV(PD7);
+	return PIND & _BV(PD7);
 }
 
 /* SD card 1 is assumed to use the standard SS pin   */
@@ -122,10 +123,10 @@ static inline uint8_t sdcard2_wp(void) {
 
 /* SD card 2 CS pin */
 static inline __attribute__((always_inline)) void sdcard2_set_ss(uint8_t state) {
-  if (state)
-    PORTD |= _BV(PD4);
-  else
-    PORTD &= ~_BV(PD4);
+	if (state)
+		PORTD |= _BV(PD4);
+	else
+		PORTD &= ~_BV(PD4);
 }
 
 /* SD Card supply voltage - choose the one appropiate to your board */
@@ -148,13 +149,13 @@ static inline __attribute__((always_inline)) void sdcard2_set_ss(uint8_t state) 
 /*** Device address selection ***/
 /* device_hw_address() returns the hardware-selected device address */
 static inline uint8_t device_hw_address(void) {
-  return 8 + !(PIND & _BV(PD7)) + 2*!(PIND & _BV(PD5));
+	return 8 + !(PIND & _BV(PD7)) + 2*!(PIND & _BV(PD5));
 }
 
 /* Configure hardware device address pins */
 static inline void device_hw_address_init(void) {
-  DDRD  &= ~(_BV(PD7) | _BV(PD5));
-  PORTD |=   _BV(PD7) | _BV(PD5);
+	DDRD  &= ~(_BV(PD7) | _BV(PD5));
+	PORTD |=   _BV(PD7) | _BV(PD5);
 }
 
 
@@ -163,33 +164,33 @@ static inline void device_hw_address_init(void) {
 
 /* Initialize ports for all LEDs */
 static inline void leds_init(void) {
-  /* Note: Depending on the chip and register these lines can compile */
-  /*       to one instruction each on AVR. For two bits this is one   */
-  /*       instruction shorter than "DDRC |= _BV(PC0) | _BV(PC1);"    */
-  DDRC |= _BV(PC0);
-  DDRC |= _BV(PC1);
+	/* Note: Depending on the chip and register these lines can compile */
+	/*       to one instruction each on AVR. For two bits this is one   */
+	/*       instruction shorter than "DDRC |= _BV(PC0) | _BV(PC1);"    */
+	DDRC |= _BV(PC0);
+	DDRC |= _BV(PC1);
 }
 
 /* --- "BUSY" led, recommended color: green (usage similiar to 1541 LED) --- */
 static inline __attribute__((always_inline)) void set_busy_led(uint8_t state) {
-  if (state)
-    PORTC |= _BV(PC0);
-  else
-    PORTC &= ~_BV(PC0);
+	if (state)
+		PORTC |= _BV(PC0);
+	else
+		PORTC &= ~_BV(PC0);
 }
 
 /* --- "DIRTY" led, recommended color: red (errors, unwritten data in memory) --- */
 static inline __attribute__((always_inline)) void set_dirty_led(uint8_t state) {
-  if (state)
-    PORTC |= _BV(PC1);
-  else
-    PORTC &= ~_BV(PC1);
+	if (state)
+		PORTC |= _BV(PC1);
+	else
+		PORTC &= ~_BV(PC1);
 }
 
 /* Toggle function used for error blinking */
 static inline void toggle_dirty_led(void) {
-  /* Sufficiently new AVR cores have a toggle function */
-  PINC |= _BV(PC1);
+	/* Sufficiently new AVR cores have a toggle function */
+	PINC |= _BV(PC1);
 }
 
 
@@ -222,8 +223,8 @@ static inline void toggle_dirty_led(void) {
 /* ATN interrupt (required) */
 #  define IEC_ATN_INT_VECT    PCINT0_vect
 static inline void iec_interrupts_init(void) {
-  PCMSK0 = _BV(PCINT0);
-  PCIFR |= _BV(PCIF0);
+	PCMSK0 = _BV(PCINT0);
+	PCIFR |= _BV(PCIF0);
 }
 
 /* CLK interrupt (not required) */
@@ -250,12 +251,12 @@ static inline void iec_interrupts_init(void) {
 
 /* Read the raw button state - a depressed button should read as 0 */
 static inline rawbutton_t buttons_read(void) {
-  return PINC & (BUTTON_NEXT | BUTTON_PREV);
+	return PINC & (BUTTON_NEXT | BUTTON_PREV);
 }
 
 static inline void buttons_init(void) {
-  DDRC  &= (uint8_t)~(BUTTON_NEXT | BUTTON_PREV);
-  PORTC |= BUTTON_NEXT | BUTTON_PREV;
+	DDRC  &= (uint8_t)~(BUTTON_NEXT | BUTTON_PREV);
+	PORTC |= BUTTON_NEXT | BUTTON_PREV;
 }
 
 /* Software I2C lines for the RTC and display */
@@ -290,52 +291,52 @@ static inline void buttons_init(void) {
 #  define SPI_DIVISOR_FAST 4
 
 static inline void sdcard_interface_init(void) {
-  DDRD &= ~_BV(PD2);
-  PORTD |= _BV(PD2);
-  DDRD &= ~_BV(PD6);
-  PORTD |= _BV(PD6);
-  EICRA |= _BV(ISC00);
-  EIMSK |= _BV(INT0);
+	DDRD &= ~_BV(PD2);
+	PORTD |= _BV(PD2);
+	DDRD &= ~_BV(PD6);
+	PORTD |= _BV(PD6);
+	EICRA |= _BV(ISC00);
+	EIMSK |= _BV(INT0);
 }
 
 static inline uint8_t sdcard_detect(void) {
-  return !(PIND & _BV(PD2));
+	return !(PIND & _BV(PD2));
 }
 
 static inline uint8_t sdcard_wp(void) {
-  return PIND & _BV(PD6);
+	return PIND & _BV(PD6);
 }
 
 static inline uint8_t device_hw_address(void) {
-  return 8 + !(PIND & _BV(PD7)) + 2*!(PIND & _BV(PD5));
+	return 8 + !(PIND & _BV(PD7)) + 2*!(PIND & _BV(PD5));
 }
 
 static inline void device_hw_address_init(void) {
-  DDRD  &= ~(_BV(PD7)|_BV(PD5));
-  PORTD |=   _BV(PD7)|_BV(PD5);
+	DDRD  &= ~(_BV(PD7)|_BV(PD5));
+	PORTD |=   _BV(PD7)|_BV(PD5);
 }
 
 static inline void leds_init(void) {
-  DDRC |= _BV(PC0);
-  DDRC |= _BV(PC1);
+	DDRC |= _BV(PC0);
+	DDRC |= _BV(PC1);
 }
 
 static inline __attribute__((always_inline)) void set_busy_led(uint8_t state) {
-  if (state)
-    PORTC |= _BV(PC0);
-  else
-    PORTC &= ~_BV(PC0);
+	if (state)
+		PORTC |= _BV(PC0);
+	else
+		PORTC &= ~_BV(PC0);
 }
 
 static inline __attribute__((always_inline)) void set_dirty_led(uint8_t state) {
-  if (state)
-    PORTC |= _BV(PC1);
-  else
-    PORTC &= ~_BV(PC1);
+	if (state)
+		PORTC |= _BV(PC1);
+	else
+		PORTC &= ~_BV(PC1);
 }
 
 static inline void toggle_dirty_led(void) {
-  PINC |= _BV(PC1);
+	PINC |= _BV(PC1);
 }
 
 #  define IEC_INPUT             PINA
@@ -349,20 +350,20 @@ static inline void toggle_dirty_led(void) {
 #  define IEC_PCMSK             PCMSK0
 
 static inline void iec_interrupts_init(void) {
-  PCICR |= _BV(PCIE0);
-  PCIFR |= _BV(PCIF0);
+	PCICR |= _BV(PCIE0);
+	PCIFR |= _BV(PCIF0);
 }
 
 #  define BUTTON_NEXT           _BV(PC4)
 #  define BUTTON_PREV           _BV(PC3)
 
 static inline rawbutton_t buttons_read(void) {
-  return PINC & (BUTTON_NEXT | BUTTON_PREV);
+	return PINC & (BUTTON_NEXT | BUTTON_PREV);
 }
 
 static inline void buttons_init(void) {
-  DDRC  &= (uint8_t)~(BUTTON_NEXT | BUTTON_PREV);
-  PORTC |= BUTTON_NEXT | BUTTON_PREV;
+	DDRC  &= (uint8_t)~(BUTTON_NEXT | BUTTON_PREV);
+	PORTC |= BUTTON_NEXT | BUTTON_PREV;
 }
 
 
@@ -376,52 +377,52 @@ static inline void buttons_init(void) {
 #  define SPI_DIVISOR_FAST 4
 
 static inline void sdcard_interface_init(void) {
-  DDRD  &= ~_BV(PD2);
-  PORTD |=  _BV(PD2);
-  DDRD  &= ~_BV(PD6);
-  PORTD |=  _BV(PD6);
-  EICRA |=  _BV(ISC00);
-  EIMSK |=  _BV(INT0);
+	DDRD  &= ~_BV(PD2);
+	PORTD |=  _BV(PD2);
+	DDRD  &= ~_BV(PD6);
+	PORTD |=  _BV(PD6);
+	EICRA |=  _BV(ISC00);
+	EIMSK |=  _BV(INT0);
 }
 
 static inline uint8_t sdcard_detect(void) {
-  return !(PIND & _BV(PD2));
+	return !(PIND & _BV(PD2));
 }
 
 static inline uint8_t sdcard_wp(void) {
-  return PIND & _BV(PD6);
+	return PIND & _BV(PD6);
 }
 
 static inline uint8_t device_hw_address(void) {
-  return 8 + !(PINA & _BV(PA2)) + 2*!(PINA & _BV(PA3));
+	return 8 + !(PINA & _BV(PA2)) + 2*!(PINA & _BV(PA3));
 }
 
 static inline void device_hw_address_init(void) {
-  DDRA  &= ~(_BV(PA2)|_BV(PA3));
-  PORTA |=   _BV(PA2)|_BV(PA3);
+	DDRA  &= ~(_BV(PA2)|_BV(PA3));
+	PORTA |=   _BV(PA2)|_BV(PA3);
 }
 
 static inline void leds_init(void) {
-  DDRA |= _BV(PA0);
-  DDRA |= _BV(PA1);
+	DDRA |= _BV(PA0);
+	DDRA |= _BV(PA1);
 }
 
 static inline __attribute__((always_inline)) void set_busy_led(uint8_t state) {
-  if (state)
-    PORTA &= ~_BV(PA0);
-  else
-    PORTA |= _BV(PA0);
+	if (state)
+		PORTA &= ~_BV(PA0);
+	else
+		PORTA |= _BV(PA0);
 }
 
 static inline __attribute__((always_inline)) void set_dirty_led(uint8_t state) {
-  if (state)
-    PORTA &= ~_BV(PA1);
-  else
-    PORTA |= _BV(PA1);
+	if (state)
+		PORTA &= ~_BV(PA1);
+	else
+		PORTA |= _BV(PA1);
 }
 
 static inline void toggle_dirty_led(void) {
-  PINA |= _BV(PA1);
+	PINA |= _BV(PA1);
 }
 
 #  define IEC_INPUT             PINC
@@ -435,20 +436,20 @@ static inline void toggle_dirty_led(void) {
 #  define IEC_PCMSK             PCMSK2
 
 static inline void iec_interrupts_init(void) {
-  PCICR |= _BV(PCIE2);
-  PCIFR |= _BV(PCIF2);
+	PCICR |= _BV(PCIE2);
+	PCIFR |= _BV(PCIF2);
 }
 
 #  define BUTTON_NEXT           _BV(PA4)
 #  define BUTTON_PREV           _BV(PA5)
 
 static inline rawbutton_t buttons_read(void) {
-  return PINA & (BUTTON_NEXT | BUTTON_PREV);
+	return PINA & (BUTTON_NEXT | BUTTON_PREV);
 }
 
 static inline void buttons_init(void) {
-  DDRA  &= (uint8_t)~(BUTTON_NEXT | BUTTON_PREV);
-  PORTA |= BUTTON_NEXT | BUTTON_PREV;
+	DDRA  &= (uint8_t)~(BUTTON_NEXT | BUTTON_PREV);
+	PORTA |= BUTTON_NEXT | BUTTON_PREV;
 }
 
 #  define SOFTI2C_PORT          PORTC
@@ -479,56 +480,56 @@ static inline void buttons_init(void) {
 #  define SINGLE_LED
 
 static inline void cfcard_interface_init(void) {
-  DDRE  &= ~_BV(PE7);
-  PORTE |=  _BV(PE7);
-  EICRB |=  _BV(ISC70);
-  EIMSK |=  _BV(INT7);
+	DDRE  &= ~_BV(PE7);
+	PORTE |=  _BV(PE7);
+	EICRB |=  _BV(ISC70);
+	EIMSK |=  _BV(INT7);
 }
 
 static inline uint8_t cfcard_detect(void) {
-  return !(PINE & _BV(PE7));
+	return !(PINE & _BV(PE7));
 }
 
 static inline void sdcard_interface_init(void) {
-  DDRB   &= ~_BV(PB7);
-  PORTB  |=  _BV(PB7);
-  DDRB   &= ~_BV(PB6);
-  PORTB  |=  _BV(PB6);
-  PCMSK0 |=  _BV(PCINT7);
-  PCICR  |=  _BV(PCIE0);
-  PCIFR  |=  _BV(PCIF0);
+	DDRB   &= ~_BV(PB7);
+	PORTB  |=  _BV(PB7);
+	DDRB   &= ~_BV(PB6);
+	PORTB  |=  _BV(PB6);
+	PCMSK0 |=  _BV(PCINT7);
+	PCICR  |=  _BV(PCIE0);
+	PCIFR  |=  _BV(PCIF0);
 }
 
 static inline uint8_t sdcard_detect(void) {
-  return !(PINB & _BV(PB7));
+	return !(PINB & _BV(PB7));
 }
 
 static inline uint8_t sdcard_wp(void) {
-  return PINB & _BV(PB6);
+	return PINB & _BV(PB6);
 }
 
 static inline uint8_t device_hw_address(void) {
-  /* No device jumpers on uIEC */
-  return 10;
+	/* No device jumpers on uIEC */
+	return 10;
 }
 
 static inline void device_hw_address_init(void) {
-  return;
+	return;
 }
 
 static inline void leds_init(void) {
-  DDRE |= _BV(PE3);
+	DDRE |= _BV(PE3);
 }
 
 static inline __attribute__((always_inline)) void set_led(uint8_t state) {
-  if (state)
-    PORTE |= _BV(PE3);
-  else
-    PORTE &= ~_BV(PE3);
+	if (state)
+		PORTE |= _BV(PE3);
+	else
+		PORTE &= ~_BV(PE3);
 }
 
 static inline void toggle_led(void) {
-  PINE |= _BV(PE3);
+	PINE |= _BV(PE3);
 }
 
 #  define IEC_INPUT             PINE
@@ -544,20 +545,20 @@ static inline void toggle_led(void) {
 #  define IEC_CLK_INT_VECT      INT5_vect
 
 static inline void iec_interrupts_init(void) {
-  EICRB |= _BV(ISC60);
-  EICRB |= _BV(ISC50);
+	EICRB |= _BV(ISC60);
+	EICRB |= _BV(ISC50);
 }
 
 #  define BUTTON_NEXT           _BV(PG4)
 #  define BUTTON_PREV           _BV(PG3)
 
 static inline rawbutton_t buttons_read(void) {
-  return PING & (BUTTON_NEXT | BUTTON_PREV);
+	return PING & (BUTTON_NEXT | BUTTON_PREV);
 }
 
 static inline void buttons_init(void) {
-  DDRG  &= (uint8_t)~(BUTTON_NEXT | BUTTON_PREV);
-  PORTG |= BUTTON_NEXT | BUTTON_PREV;
+	DDRG  &= (uint8_t)~(BUTTON_NEXT | BUTTON_PREV);
+	PORTG |= BUTTON_NEXT | BUTTON_PREV;
 }
 
 #  define SOFTI2C_PORT          PORTD
@@ -592,9 +593,9 @@ static inline void buttons_init(void) {
 #  define HAVE_BOARD_INIT
 
 static inline void board_init(void) {
-  /* Force control lines of the external SRAM high */
-  DDRG  = _BV(PG0) | _BV(PG1) | _BV(PG2);
-  PORTG = _BV(PG0) | _BV(PG1) | _BV(PG2);
+	/* Force control lines of the external SRAM high */
+	DDRG  = _BV(PG0) | _BV(PG1) | _BV(PG2);
+	PORTG = _BV(PG0) | _BV(PG1) | _BV(PG2);
 }
 
 
@@ -610,77 +611,77 @@ static inline void board_init(void) {
 #  define SPI_DIVISOR_FAST 4
 
 static inline void sdcard_interface_init(void) {
-  DDRD  &= ~_BV(PD2);
-  PORTD |=  _BV(PD2);
-  DDRD  &= ~_BV(PD6);
-  PORTD |=  _BV(PD6);
-  EICRA |=  _BV(ISC00);
-  EIMSK |=  _BV(INT0);
+	DDRD  &= ~_BV(PD2);
+	PORTD |=  _BV(PD2);
+	DDRD  &= ~_BV(PD6);
+	PORTD |=  _BV(PD6);
+	EICRA |=  _BV(ISC00);
+	EIMSK |=  _BV(INT0);
 #ifdef CONFIG_TWINSD
-  PORTD |=  _BV(PD3); // CS
-  DDRD  |=  _BV(PD3); // CS
-  DDRC  &= ~_BV(PC7); // WP
-  PORTC |=  _BV(PC7); // WP
-  DDRB  &= ~_BV(PB2); // Detect
-  PORTB |=  _BV(PB2); // Detect
-  EICRA |=  _BV(ISC20); // Change interrupt
-  EIMSK |=  _BV(INT2);  // Change interrupt
+	PORTD |=  _BV(PD3); // CS
+	DDRD  |=  _BV(PD3); // CS
+	DDRC  &= ~_BV(PC7); // WP
+	PORTC |=  _BV(PC7); // WP
+	DDRB  &= ~_BV(PB2); // Detect
+	PORTB |=  _BV(PB2); // Detect
+	EICRA |=  _BV(ISC20); // Change interrupt
+	EIMSK |=  _BV(INT2);  // Change interrupt
 #endif
 }
 
 static inline uint8_t sdcard_detect(void) {
-  return !(PIND & _BV(PD2));
+	return !(PIND & _BV(PD2));
 }
 
 static inline uint8_t sdcard_wp(void) {
-  return PIND & _BV(PD6);
+	return PIND & _BV(PD6);
 }
 
 static inline uint8_t sdcard2_detect(void) {
-  return !(PINB & _BV(PB2));
+	return !(PINB & _BV(PB2));
 }
 
 static inline uint8_t sdcard2_wp(void) {
-  return PINC & _BV(PC7);
+	return PINC & _BV(PC7);
 }
 
 static inline __attribute__((always_inline)) void sdcard2_set_ss(uint8_t state) {
-  if (state)
-    PORTD |= _BV(PD3);
-  else
-    PORTD &= ~_BV(PD3);
+	if (state)
+		PORTD |= _BV(PD3);
+	else
+		PORTD &= ~_BV(PD3);
 }
 
 static inline uint8_t device_hw_address(void) {
-  return 8 + !(PIND & _BV(PD7)) + 2*!(PIND & _BV(PD5));
+	return 8 + !(PIND & _BV(PD7)) + 2*!(PIND & _BV(PD5));
 }
 
 static inline void device_hw_address_init(void) {
-  DDRD  &= ~(_BV(PD7)|_BV(PD5));
-  PORTD |=   _BV(PD7)|_BV(PD5);
+	DDRD  &= ~(_BV(PD7)|_BV(PD5));
+	PORTD |=   _BV(PD7)|_BV(PD5);
 }
 
 static inline void leds_init(void) {
-  DDRC |= _BV(PC0);
-  DDRC |= _BV(PC1);
+	DDRC |= _BV(PC0);
+	DDRC |= _BV(PC1);
 }
 
 static inline __attribute__((always_inline)) void set_busy_led(uint8_t state) {
-  if (state)
-    PORTC |= _BV(PC0);
-  else
-    PORTC &= ~_BV(PC0);
+	if (state)
+		PORTC |= _BV(PC0);
+	else
+		PORTC &= ~_BV(PC0);
 }
 
 static inline __attribute__((always_inline)) void set_dirty_led(uint8_t state) {
-  if (state)
-    PORTC |= _BV(PC1);
-  else
-    PORTC &= ~_BV(PC1);
+	if (state)
+		PORTC |= _BV(PC1);
+	else
+		PORTC &= ~_BV(PC1);
 }
 
 static inline void toggle_dirty_led(void) {
-  PINC |= _BV(PC1);
+	PINC |= _BV(PC1);
 }
 
 #  define IEC_INPUT             PINA
@@ -699,20 +700,20 @@ static inline void toggle_dirty_led(void) {
 #  define IEC_PCMSK             PCMSK0
 
 static inline void iec_interrupts_init(void) {
-  PCICR |= _BV(PCIE0);
-  PCIFR |= _BV(PCIF0);
+	PCICR |= _BV(PCIE0);
+	PCIFR |= _BV(PCIF0);
 }
 
 #  define BUTTON_NEXT           _BV(PC3)
 #  define BUTTON_PREV           _BV(PC2)
 
 static inline rawbutton_t buttons_read(void) {
-  return PINC & (BUTTON_NEXT | BUTTON_PREV);
+	return PINC & (BUTTON_NEXT | BUTTON_PREV);
 }
 
 static inline void buttons_init(void) {
-  DDRC  &= (uint8_t)~(BUTTON_NEXT | BUTTON_PREV);
-  PORTC |= BUTTON_NEXT | BUTTON_PREV;
+	DDRC  &= (uint8_t)~(BUTTON_NEXT | BUTTON_PREV);
+	PORTC |= BUTTON_NEXT | BUTTON_PREV;
 }
 
 #  define SOFTI2C_PORT          PORTC
@@ -740,44 +741,44 @@ static inline void buttons_init(void) {
 #  define SINGLE_LED
 
 static inline void sdcard_interface_init(void) {
-  DDRE  &= ~_BV(PE6);
-  PORTE |=  _BV(PE6);
-  DDRE  &= ~_BV(PE2);
-  PORTE |=  _BV(PE2);
-  EICRB |=  _BV(ISC60);
-  EIMSK |=  _BV(INT6);
+	DDRE  &= ~_BV(PE6);
+	PORTE |=  _BV(PE6);
+	DDRE  &= ~_BV(PE2);
+	PORTE |=  _BV(PE2);
+	EICRB |=  _BV(ISC60);
+	EIMSK |=  _BV(INT6);
 }
 
 static inline uint8_t sdcard_detect(void) {
-  return !(PINE & _BV(PE6));
+	return !(PINE & _BV(PE6));
 }
 
 static inline uint8_t sdcard_wp(void) {
-  return PINE & _BV(PE2);
+	return PINE & _BV(PE2);
 }
 
 static inline uint8_t device_hw_address(void) {
-  /* No device jumpers on uIEC */
-  return 10;
+	/* No device jumpers on uIEC */
+	return 10;
 }
 
 static inline void device_hw_address_init(void) {
-  return;
+	return;
 }
 
 static inline void leds_init(void) {
-  DDRG |= _BV(PG0);
+	DDRG |= _BV(PG0);
 }
 
 static inline __attribute__((always_inline)) void set_led(uint8_t state) {
-  if (state)
-    PORTG |= _BV(PG0);
-  else
-    PORTG &= ~_BV(PG0);
+	if (state)
+		PORTG |= _BV(PG0);
+	else
+		PORTG &= ~_BV(PG0);
 }
 
 static inline void toggle_led(void) {
-  PING |= _BV(PG0);
+	PING |= _BV(PG0);
 }
 
 #  define IEC_INPUT             PINB
@@ -798,28 +799,28 @@ static inline void toggle_led(void) {
 #  define IEC_PCMSK             PCMSK0
 
 static inline void iec_interrupts_init(void) {
-  PCICR |= _BV(PCIE0);
-  PCIFR |= _BV(PCIF0);
+	PCICR |= _BV(PCIE0);
+	PCIFR |= _BV(PCIF0);
 }
 
 #  define BUTTON_NEXT           _BV(PG4)
 #  define BUTTON_PREV           _BV(PG3)
 
 static inline rawbutton_t buttons_read(void) {
-  return PING & (BUTTON_NEXT | BUTTON_PREV);
+	return PING & (BUTTON_NEXT | BUTTON_PREV);
 }
 
 static inline void buttons_init(void) {
-  DDRG  &= (uint8_t)~(BUTTON_NEXT | BUTTON_PREV);
-  PORTG |= BUTTON_NEXT | BUTTON_PREV;
+	DDRG  &= (uint8_t)~(BUTTON_NEXT | BUTTON_PREV);
+	PORTG |= BUTTON_NEXT | BUTTON_PREV;
 }
 
 #  define HAVE_BOARD_INIT
 
 static inline void board_init(void) {
-  // turn on power LED
-  DDRG  |= _BV(PG1);
-  PORTG |= _BV(PG1);
+	// turn on power LED
+	DDRG  |= _BV(PG1);
+	PORTG |= _BV(PG1);
 }
 
 #elif CONFIG_HARDWARE_VARIANT == 8
@@ -833,52 +834,52 @@ static inline void board_init(void) {
 #  define SPI_DIVISOR_FAST 8
 
 static inline void sdcard_interface_init(void) {
-  DDRD   &= ~_BV(PD4);            /* card detect */
-  PORTD  |=  _BV(PD4);
-  DDRC   &= ~_BV(PC3);            /* write protect  */
-  PORTC  |=  _BV(PC3);
-  PCMSK3 |=  _BV(PCINT28);        /* card change interrupt */
-  PCICR  |=  _BV(PCIE3);
-  PCIFR  |=  _BV(PCIF3);
+	DDRD   &= ~_BV(PD4);            /* card detect */
+	PORTD  |=  _BV(PD4);
+	DDRC   &= ~_BV(PC3);            /* write protect  */
+	PORTC  |=  _BV(PC3);
+	PCMSK3 |=  _BV(PCINT28);        /* card change interrupt */
+	PCICR  |=  _BV(PCIE3);
+	PCIFR  |=  _BV(PCIF3);
 }
 
 static inline uint8_t sdcard_detect(void) {
-  return (!(PIND & _BV(PD4)));
+	return (!(PIND & _BV(PD4)));
 }
 
 static inline uint8_t sdcard_wp(void) {
-  return (PINC & _BV(PC3));
+	return (PINC & _BV(PC3));
 }
 
 static inline uint8_t device_hw_address(void) {
-  /* No device jumpers on petSD */
-  return 8;
+	/* No device jumpers on petSD */
+	return 8;
 }
 static inline void device_hw_address_init(void) {
-  return;
+	return;
 }
 
 static inline void leds_init(void) {
-  DDRD |= _BV(PD5);
-  DDRD |= _BV(PD6);
+	DDRD |= _BV(PD5);
+	DDRD |= _BV(PD6);
 }
 
 static inline __attribute__((always_inline)) void set_busy_led(uint8_t state) {
-  if (state)
-    PORTD |= _BV(PD5);
-  else
-    PORTD &= (uint8_t) ~_BV(PD5);
+	if (state)
+		PORTD |= _BV(PD5);
+	else
+		PORTD &= (uint8_t) ~_BV(PD5);
 }
 
 static inline __attribute__((always_inline)) void set_dirty_led(uint8_t state) {
-  if (state)
-    PORTD |= _BV(PD6);
-  else
-    PORTD &= (uint8_t) ~_BV(PD6);
+	if (state)
+		PORTD |= _BV(PD6);
+	else
+		PORTD &= (uint8_t) ~_BV(PD6);
 }
 
 static inline void toggle_dirty_led(void) {
-  PIND |= _BV(PD6);
+	PIND |= _BV(PD6);
 }
 
 #  define HAVE_IEEE
@@ -886,10 +887,10 @@ static inline void toggle_dirty_led(void) {
 #  define IEEE_ATN_INT_VECT     INT0_vect
 
 static inline void ieee_interrupts_init(void) {
-  DDRD &= ~_BV(PD2);
-  PORTD |= _BV(PD2);
-  EICRA |= _BV(ISC00);
-  EIMSK |= _BV(INT0);
+	DDRD &= ~_BV(PD2);
+	PORTD |= _BV(PD2);
+	EICRA |= _BV(ISC00);
+	EIMSK |= _BV(INT0);
 }
 
 #  define HAVE_7516X            /* Device uses 75160/75161 bus drivers */
@@ -941,30 +942,30 @@ static inline void ieee_interrupts_init(void) {
 #  define IEEE_BIT_IFC          0   /* Define as 0 if IFC not connected */
 
 static inline void ieee_interface_init(void) {
-  IEEE_PORT_TE  &= (uint8_t) ~ IEEE_BIT_TE;         // Set TE low
-  IEEE_PORT_DC  |= IEEE_BIT_DC;                     // Set DC high
-  IEEE_PORT_SRQ |= IEEE_BIT_SRQ;                    // Set SRQ high
-  IEEE_DDR_TE   |= IEEE_BIT_TE;                     // Define TE  as output
-  IEEE_DDR_DC   |= IEEE_BIT_DC;                     // Define DC  as output
-  IEEE_DDR_SRQ  |= IEEE_BIT_SRQ;                    // Define SRQ as output
-  IEEE_PORT_ATN |= _BV(IEEE_PIN_ATN);               // Enable pull-up for ATN
-  IEEE_PORT_REN |= IEEE_BIT_REN;                    // Enable pull-up for REN
-  IEEE_PORT_IFC |= IEEE_BIT_IFC;                    // Enable pull-up for IFC
-  IEEE_DDR_ATN  &= (uint8_t) ~ _BV(IEEE_PIN_ATN);   // Define ATN as input
-  IEEE_DDR_REN  &= (uint8_t) ~ IEEE_BIT_REN;        // Define REN as input
-  IEEE_DDR_IFC  &= (uint8_t) ~ IEEE_BIT_IFC;        // Define IFC as input
+	IEEE_PORT_TE  &= (uint8_t) ~ IEEE_BIT_TE;         // Set TE low
+	IEEE_PORT_DC  |= IEEE_BIT_DC;                     // Set DC high
+	IEEE_PORT_SRQ |= IEEE_BIT_SRQ;                    // Set SRQ high
+	IEEE_DDR_TE   |= IEEE_BIT_TE;                     // Define TE  as output
+	IEEE_DDR_DC   |= IEEE_BIT_DC;                     // Define DC  as output
+	IEEE_DDR_SRQ  |= IEEE_BIT_SRQ;                    // Define SRQ as output
+	IEEE_PORT_ATN |= _BV(IEEE_PIN_ATN);               // Enable pull-up for ATN
+	IEEE_PORT_REN |= IEEE_BIT_REN;                    // Enable pull-up for REN
+	IEEE_PORT_IFC |= IEEE_BIT_IFC;                    // Enable pull-up for IFC
+	IEEE_DDR_ATN  &= (uint8_t) ~ _BV(IEEE_PIN_ATN);   // Define ATN as input
+	IEEE_DDR_REN  &= (uint8_t) ~ IEEE_BIT_REN;        // Define REN as input
+	IEEE_DDR_IFC  &= (uint8_t) ~ IEEE_BIT_IFC;        // Define IFC as input
 }
 
 #  define BUTTON_NEXT           _BV(PB1)
 #  define BUTTON_PREV           _BV(PB3)
 
 static inline rawbutton_t buttons_read(void) {
-  return (PINB & (BUTTON_NEXT | BUTTON_PREV));
+	return (PINB & (BUTTON_NEXT | BUTTON_PREV));
 }
 
 static inline void buttons_init(void) {
-  DDRB  &= (uint8_t)~(BUTTON_NEXT | BUTTON_PREV);
-  PORTB |= BUTTON_NEXT | BUTTON_PREV;
+	DDRB  &= (uint8_t)~(BUTTON_NEXT | BUTTON_PREV);
+	PORTB |= BUTTON_NEXT | BUTTON_PREV;
 }
 
 #  define SOFTI2C_PORT          PORTC
@@ -978,8 +979,8 @@ static inline void buttons_init(void) {
 #  define HAVE_BOARD_INIT
 
 static inline void board_init(void) {
-  DDRC  |= _BV(PC4);
-  PORTC |= _BV(PC4);       /* Disable  ENC28J60 */
+	DDRC  |= _BV(PC4);
+	PORTC |= _BV(PC4);       /* Disable  ENC28J60 */
 }
 
 
@@ -993,48 +994,48 @@ static inline void board_init(void) {
 #  define SPI_DIVISOR_FAST 8
 
 static inline void sdcard_interface_init(void) {
-  /* No card detect switch, no write protect switch... nothing */
-  return;
+	/* No card detect switch, no write protect switch... nothing */
+	return;
 }
 
 static inline uint8_t sdcard_detect(void) {
-  return 1; /* assume it's always there */
+	return 1; /* assume it's always there */
 }
 
 static inline uint8_t sdcard_wp(void) {
-  return 0;
+	return 0;
 }
 
 static inline uint8_t device_hw_address(void) {
-  /* No device jumpers on XS-1541 */
-  return 8;
+	/* No device jumpers on XS-1541 */
+	return 8;
 }
 
 static inline void device_hw_address_init(void) {
-  return;
+	return;
 }
 
 static inline void leds_init(void) {
-  DDRC |= _BV(PC0);  /* busy LED onboard */
-  DDRB |= _BV(PB0);  /* dirty LED extern */
+	DDRC |= _BV(PC0);  /* busy LED onboard */
+	DDRB |= _BV(PB0);  /* dirty LED extern */
 }
 
 static inline __attribute__((always_inline)) void set_busy_led(uint8_t state) {
-  if (state)
-    PORTC |= _BV(PC0);
-  else
-    PORTC &= ~_BV(PC0);
+	if (state)
+		PORTC |= _BV(PC0);
+	else
+		PORTC &= ~_BV(PC0);
 }
 
 static inline __attribute__((always_inline)) void set_dirty_led(uint8_t state) {
-  if (state)
-    PORTB |= _BV(PB0);
-  else
-    PORTB &= ~_BV(PB0);
+	if (state)
+		PORTB |= _BV(PB0);
+	else
+		PORTB &= ~_BV(PB0);
 }
 
 static inline void toggle_dirty_led(void) {
-  PINB |= _BV(PB0);
+	PINB |= _BV(PB0);
 }
 
 // dual-interface device, currently only as a compile-time option
@@ -1050,8 +1051,8 @@ static inline void toggle_dirty_led(void) {
 #  define IEC_PCMSK             PCMSK3
 
 static inline void iec_interrupts_init(void) {
-  PCICR |= _BV(PCIE3);
-  PCIFR |= _BV(PCIF3);
+	PCICR |= _BV(PCIE3);
+	PCIFR |= _BV(PCIF3);
 }
 #endif // CONFIG_HAVE_IEC
 
@@ -1062,14 +1063,14 @@ static inline void iec_interrupts_init(void) {
 #  define IEEE_ATN_INT_VECT     PCINT3_vect
 
 static inline void ieee_interrupts_init(void)  {
-  /* clear interrupt flag */
-  PCIFR |= _BV(PCIF3);
+	/* clear interrupt flag */
+	PCIFR |= _BV(PCIF3);
 
-  /* enable ATN in pin change enable mask */
-  IEEE_PCMSK |= _BV(IEEE_PCINT);
+	/* enable ATN in pin change enable mask */
+	IEEE_PCMSK |= _BV(IEEE_PCINT);
 
-  /* Enable pin change interrupt 3 (PCINT31..24) */
-  PCICR |= _BV(PCIE3);
+	/* Enable pin change interrupt 3 (PCINT31..24) */
+	PCICR |= _BV(PCIE3);
 }
 
 #  define IEEE_C_PIN            PINC    /* Control signals */
@@ -1098,16 +1099,16 @@ static inline void ieee_interrupts_init(void)  {
 #  define IEEE_BIT_IFC          _BV(IEEE_PIN_IFC)
 
 static inline void ieee_interface_init(void) {
-  /* Define TE, DC, SRQ as outputs */
-  IEEE_C_DDR |= IEEE_BIT_TE | IEEE_BIT_DC | IEEE_BIT_SRQ;
+	/* Define TE, DC, SRQ as outputs */
+	IEEE_C_DDR |= IEEE_BIT_TE | IEEE_BIT_DC | IEEE_BIT_SRQ;
 
-  /* Define REN, IFC as inputs */
-  IEEE_C_DDR &= (uint8_t) ~ (IEEE_BIT_REN | IEEE_BIT_IFC);
+	/* Define REN, IFC as inputs */
+	IEEE_C_DDR &= (uint8_t) ~ (IEEE_BIT_REN | IEEE_BIT_IFC);
 
-  /* DC and SRQ high, pull-up for REN and IFC */
-  IEEE_C_PORT     |= IEEE_BIT_DC | IEEE_BIT_SRQ | IEEE_BIT_REN | IEEE_BIT_IFC;
-  IEEE_C_ATN_DDR  &= (uint8_t)~_BV(IEEE_PIN_ATN); // ATN as input
-  IEEE_C_ATN_PORT |= _BV(IEEE_PIN_ATN);           // enable ATN pullup
+	/* DC and SRQ high, pull-up for REN and IFC */
+	IEEE_C_PORT     |= IEEE_BIT_DC | IEEE_BIT_SRQ | IEEE_BIT_REN | IEEE_BIT_IFC;
+	IEEE_C_ATN_DDR  &= (uint8_t)~_BV(IEEE_PIN_ATN); // ATN as input
+	IEEE_C_ATN_PORT |= _BV(IEEE_PIN_ATN);           // enable ATN pullup
 }
 
 #endif // CONFIG_HAVE_IEEE
@@ -1116,18 +1117,19 @@ static inline void ieee_interface_init(void) {
 #  define BUTTON_PREV           _BV(PB2)
 
 static inline rawbutton_t buttons_read(void) {
-  return (PINB & (BUTTON_NEXT | BUTTON_PREV));
+	return (PINB & (BUTTON_NEXT | BUTTON_PREV));
 }
 
 static inline void buttons_init(void) {
-  DDRB &= (uint8_t) ~ (BUTTON_NEXT | BUTTON_PREV);
-  PORTB |= BUTTON_NEXT | BUTTON_PREV;
+	DDRB &= (uint8_t) ~ (BUTTON_NEXT | BUTTON_PREV);
+	PORTB |= BUTTON_NEXT | BUTTON_PREV;
 }
 
 
 #elif CONFIG_HARDWARE_VARIANT == 10
+
 /* ------------------------------------------------------------------------ */
-/* ---- Hardware configuration: Mayer Electronics SDIEC Arduino Shield ---- */
+/* ---- Hardware configuration: Arduino Mega 2560 or clone ---- */
 /* ------------------------------------------------------------------------ */
 /* This is a commented example for most of the available options    */
 /* in case someone wants to build Yet Another[tm] hardware variant. */
@@ -1142,73 +1144,83 @@ static inline void buttons_init(void) {
 #  define SD_CHANGE_HANDLER ISR(INT4_vect)
 
 /* Initialize all pins and interrupts related to SD - except SPI */
-static inline void sdcard_interface_init(void) {
-  /* card detect (SD1) */
-  DDRE  &= ~_BV(PE4);
-  PORTE |=  _BV(PE4);
-  /* write protect (SD1) (NOT WIRED YET, PE2 unused on the Arduino)*/
-  DDRE &= ~_BV(PE2);
-  PORTE |= _BV(PE2);
-  /* card change interrupt (SD1) */
-  EICRB |= _BV(ISC40);   // Any logical change on INTn
-  EICRB &= ~_BV(ISC41);  // generates an interrupt request
-  EIMSK |= _BV(INT4);
-  /* chip select (SD1) */
-  PORTE |= _BV(PE3);
-  DDRE |= _BV(PE3);
+static inline void sdcard_interface_init(void)
+{
+	// card detect (SD1)
+	DDRE  and_eq ~_BV(PE4);
+	PORTE or_eq  _BV(PE4);
+	// write protect (SD1) (NOT WIRED YET, PE2 unused on the Arduino)
+	DDRE and_eq ~_BV(PE2);
+	PORTE or_eq _BV(PE2);
 
-  // Note: Wrapping SD2 in CONFIG_TWINSD may be a good idea
-  #if 0
-  /* Declaration of the interrupt handler for SD card 2 change */
-  #  define SD2_CHANGE_HANDLER ISR(INT9_vect)
-  /* chip select (SD2) */
-  PORTD |= _BV(PD4);
-  DDRD |= _BV(PD4);
-  /* card detect (SD2) */
-  DDRD &= ~_BV(PD3);
-  PORTD |= _BV(PD3);
-  /* write protect (SD2) */
-  DDRD &= ~_BV(PD7);
-  PORTD |= _BV(PD7);
-  /* card change interrupt (SD2) */
-  EICRA |=  _BV(ISC90); // Change interrupt
-  EIMSK |=  _BV(INT9);  // Change interrupt
-  #endif
+	// card change interrupt (SD1)
+	EICRB or_eq _BV(ISC40);   // Any logical change on INTn
+	EICRB and_eq ~_BV(ISC41);  // generates an interrupt request
+	EIMSK or_eq _BV(INT4);
+
+	// chip select (SD1)
+	PORTE or_eq _BV(PE3);
+	DDRE or_eq _BV(PE3);
+
+	// Note: Wrapping SD2 in CONFIG_TWINSD may be a good idea
+	#if 0
+	/* Declaration of the interrupt handler for SD card 2 change */
+	#  define SD2_CHANGE_HANDLER ISR(INT9_vect)
+	/* chip select (SD2) */
+	PORTD |= _BV(PD4);
+	DDRD |= _BV(PD4);
+	/* card detect (SD2) */
+	DDRD &= ~_BV(PD3);
+	PORTD |= _BV(PD3);
+	/* write protect (SD2) */
+	DDRD &= ~_BV(PD7);
+	PORTD |= _BV(PD7);
+	/* card change interrupt (SD2) */
+	EICRA |=  _BV(ISC90); // Change interrupt
+	EIMSK |=  _BV(INT9);  // Change interrupt
+	#endif
 }
 
 /* sdcard_detect() must return non-zero while a card is inserted */
 /* This must be a pin capable of generating interrupts.          */
-static inline uint8_t sdcard_detect(void) {
-  return !(PINE& _BV(PE4));
+static inline uint8_t sdcard_detect(void)
+{
+	return not (PINE bitand _BV(PE4));
 }
 
 /* SD card 1 is assumed to use the standard SS pin   */
 /* If that's not true, #define SDCARD_SS_SPECIAL and */
 /* implement this function:                          */
 #define SDCARD_SS_SPECIAL
-static inline __attribute__((always_inline)) void sdcard_set_ss(uint8_t state) {
-  if (state)
-    PORTE |= _BV(PE3);
-  else
-    PORTE &= ~_BV(PE3);
+static inline __attribute__((always_inline)) void sdcard_set_ss(uint8_t state)
+{
+	if(state)
+		PORTE or_eq _BV(PE3);
+	else
+		PORTE and_eq ~_BV(PE3);
 }
 
 /* Returns non-zero when the currently inserted card is write-protected */
-static inline uint8_t sdcard_wp(void) {
-  return 0;
+static inline uint8_t sdcard_wp(void)
+{
+	return 0;
 }
 
 /* Support for a second SD card - use CONFIG_TWINSD=y in your config file to enable! */
 /* Same as the two functions above, but for card 2 */
-static inline uint8_t sdcard2_detect(void) {
-  return 0;
+static inline uint8_t sdcard2_detect(void)
+{
+	return 0;
 }
-static inline uint8_t sdcard2_wp(void) {
-  return 0;
+static inline uint8_t sdcard2_wp(void)
+{
+	return 0;
 }
 
 /* SD card 2 CS pin */
-static inline __attribute__((always_inline)) void sdcard2_set_ss(uint8_t state) {
+static inline __attribute__((always_inline)) void sdcard2_set_ss(uint8_t state)
+{
+	VAR_UNUSED(state);
 }
 
 /* SD Card supply voltage - choose the one appropiate to your board */
@@ -1218,7 +1230,7 @@ static inline __attribute__((always_inline)) void sdcard2_set_ss(uint8_t state) 
 /* #  define SD_SUPPLY_VOLTAGE (1L<<18)  / * 3.0V - 3.1V */
 /* #  define SD_SUPPLY_VOLTAGE (1L<<19)  / * 3.1V - 3.2V */
 /* #  define SD_SUPPLY_VOLTAGE (1L<<20)  / * 3.2V - 3.3V */
-#  define SD_SUPPLY_VOLTAGE (1L<<21)  /* 3.3V - 3.4V */
+#  define SD_SUPPLY_VOLTAGE (1L << 21)  /* 3.3V - 3.4V */
 /* #  define SD_SUPPLY_VOLTAGE (1L<<22)  / * 3.4V - 3.5V */
 /* #  define SD_SUPPLY_VOLTAGE (1L<<23)  / * 3.5V - 3.6V */
 
@@ -1230,50 +1242,59 @@ static inline __attribute__((always_inline)) void sdcard2_set_ss(uint8_t state) 
 
 /*** Device address selection ***/
 /* device_hw_address() returns the hardware-selected device address */
-static inline uint8_t device_hw_address(void) {
-  // return 8 + !(PIND & _BV(PD7)) + 2*!(PIND & _BV(PD5));
-  return 9;
+static inline uint8_t device_hw_address(void)
+{
+	// TODO: Attach and implement a 2-button DIP-switch.
+	// return 8 + !(PIND & _BV(PD7)) + 2*!(PIND & _BV(PD5));
+	return 8;
 }
 
 /* Configure hardware device address pins */
-static inline void device_hw_address_init(void) {
-  // DDRD  &= ~(_BV(PD7) | _BV(PD5));
-  // PORTD |=   _BV(PD7) | _BV(PD5);
+static inline void device_hw_address_init(void)
+{
+	// DDRD  &= ~(_BV(PD7) | _BV(PD5));
+	// PORTD |=   _BV(PD7) | _BV(PD5);
 }
 
 
 /*** LEDs ***/
-/* Please don't build single-LED hardware anymore... */
+// Please don't build single-LED hardware anymore...
 
-/* Initialize ports for all LEDs */
-static inline void leds_init(void) {
-  /* Note: Depending on the chip and register these lines can compile */
-  /*       to one instruction each on AVR. For two bits this is one   */
-  /*       instruction shorter than "DDRC |= _BV(PC0) | _BV(PC1);"    */
-  DDRH |= _BV(PH4);
-  DDRH |= _BV(PH3);
+// Initialize ports for all LEDs
+static inline void leds_init(void)
+{
+	/* Note: Depending on the chip and register these lines can compile */
+	/*       to one instruction each on AVR. For two bits this is one   */
+	/*       instruction shorter than "DDRC |= _BV(PC0) | _BV(PC1);"    */
+	DDRH |= _BV(PH4);
+	DDRH |= _BV(PH3);
 }
 
-/* --- "BUSY" led, recommended color: green (usage similiar to 1541 LED) --- */
-static inline __attribute__((always_inline)) void set_busy_led(uint8_t state) {
-  if (state)
-    PORTH &= ~_BV(PH3);
-  else
-    PORTH |= _BV(PH3);
+// --- "BUSY" led, recommended color: green (usage similiar to 1541 LED) ---
+static inline __attribute__((always_inline)) void set_busy_led(uint8_t state)
+{
+	// TODO: Attach and implement a green led for BUSY.
+	VAR_UNUSED(state);
+//	if (state)
+//		PORTH and_eq ~_BV(PH3);
+//	else
+//		PORTH or_eq _BV(PH3);
 }
 
-/* --- "DIRTY" led, recommended color: red (errors, unwritten data in memory) --- */
-static inline __attribute__((always_inline)) void set_dirty_led(uint8_t state) {
-  if (state)
-    PORTH &= ~_BV(PH4);
-  else
-    PORTH |= _BV(PH4);
+// --- "DIRTY" led, recommended color: red (errors, unwritten data in memory) ---
+static inline __attribute__((always_inline)) void set_dirty_led(uint8_t state)
+{
+	if(state)
+		PORTH and_eq ~_BV(PH4);
+	else
+		PORTH or_eq _BV(PH4);
 }
 
-/* Toggle function used for error blinking */
-static inline void toggle_dirty_led(void) {
-  /* Sufficiently new AVR cores have a toggle function */
-  PINH |= _BV(PH4);
+// Toggle function used for error blinking
+static inline void toggle_dirty_led(void)
+{
+	// Sufficiently new AVR cores have a toggle function
+	PINH or_eq _BV(PH4);
 }
 
 
@@ -1306,8 +1327,9 @@ static inline void toggle_dirty_led(void) {
 /* ATN interrupt (required) */
 #  define IEC_ATN_INT         INT3
 #  define IEC_ATN_INT_VECT    INT3_vect
-static inline void iec_interrupts_init(void) {
-  EIMSK |= _BV(INT3);
+static inline void iec_interrupts_init(void)
+{
+	EIMSK |= _BV(INT3);
 }
 /* CLK interrupt (not required) */
 /* Dreamload requires interrupts for both the ATN and CLK lines. If both are served by */
@@ -1316,8 +1338,9 @@ static inline void iec_interrupts_init(void) {
 /* If the CLK line has its own dedicated interrupt, use the following definitions: */
 #  define IEC_CLK_INT           INT1
 #  define IEC_CLK_INT_VECT      INT1_vect
-static inline void iec_clock_int_setup(void) {
-  EICRA |= _BV(ISC10);
+static inline void iec_clock_int_setup(void)
+{
+	EICRA |= _BV(ISC10);
 }
 
 
@@ -1332,13 +1355,16 @@ static inline void iec_clock_int_setup(void) {
 #  define BUTTON_PREV _BV(PG2)
 
 /* Read the raw button state - a depressed button should read as 0 */
-static inline rawbutton_t buttons_read(void) {
-  return PING & (BUTTON_NEXT | BUTTON_PREV);
+static inline rawbutton_t buttons_read(void)
+{
+	// TODO: Attach/Implement a button on some GPIO.
+	return 0;
+//	return PING & (BUTTON_NEXT | BUTTON_PREV);
 }
 
 static inline void buttons_init(void) {
-  DDRG  &= (uint8_t)~(BUTTON_NEXT | BUTTON_PREV);
-  PORTG |= BUTTON_NEXT | BUTTON_PREV;
+	DDRG  &= (uint8_t)~(BUTTON_NEXT | BUTTON_PREV);
+	PORTG |= BUTTON_NEXT | BUTTON_PREV;
 }
 
 /* Software I2C lines for the RTC and display */
@@ -1352,12 +1378,16 @@ static inline void buttons_init(void) {
 
 /*** board-specific initialisation ***/
 /* Currently used on uIEC/CF and uIEC/SD only */
-//#define HAVE_BOARD_INIT
-//static inline void board_init(void) {
-//  // turn on power LED
+#define HAVE_BOARD_INIT
+static inline void board_init(void)
+{
+	// clock down to 8MHZ to fit the turbo loader strict cycle timings.
+	CLKPR = _BV(CLKPCE);
+	CLKPR = _BV(CLKPS0);
+	// turn on power LED
 //  DDRG  |= _BV(PG1);
 //  PORTG |= _BV(PG1);
-//}
+}
 
 #else
 #  error "CONFIG_HARDWARE_VARIANT is unset or set to an unknown value."
@@ -1420,25 +1450,25 @@ typedef uint8_t iec_bus_t;
 #define IEC_OUTPUTS_INVERTED
 
 #ifdef IEC_PCMSK
-   /* For hardware configurations using PCINT for IEC IRQs */
+	 /* For hardware configurations using PCINT for IEC IRQs */
 #  define set_atn_irq(x) \
-     if (x) { IEC_PCMSK |= _BV(IEC_PIN_ATN); } \
-     else { IEC_PCMSK &= (uint8_t)~_BV(IEC_PIN_ATN); }
+		 if (x) { IEC_PCMSK |= _BV(IEC_PIN_ATN); } \
+		 else { IEC_PCMSK &= (uint8_t)~_BV(IEC_PIN_ATN); }
 #  define set_clock_irq(x) \
-     if (x) { IEC_PCMSK |= _BV(IEC_PIN_CLOCK); } \
-     else { IEC_PCMSK &= (uint8_t)~_BV(IEC_PIN_CLOCK); }
+		 if (x) { IEC_PCMSK |= _BV(IEC_PIN_CLOCK); } \
+		 else { IEC_PCMSK &= (uint8_t)~_BV(IEC_PIN_CLOCK); }
 #  define HAVE_CLOCK_IRQ
 #else
-     /* Hardware ATN interrupt */
+		 /* Hardware ATN interrupt */
 #  define set_atn_irq(x) \
-     if (x) { EIMSK |= _BV(IEC_ATN_INT); } \
-     else { EIMSK &= (uint8_t)~_BV(IEC_ATN_INT); }
+		 if (x) { EIMSK |= _BV(IEC_ATN_INT); } \
+		 else { EIMSK &= (uint8_t)~_BV(IEC_ATN_INT); }
 
 #  ifdef IEC_CLK_INT
-     /* Hardware has a CLK interrupt */
+		 /* Hardware has a CLK interrupt */
 #    define set_clock_irq(x) \
-       if (x) { EIMSK |= _BV(IEC_CLK_INT); } \
-       else { EIMSK &= (uint8_t)~_BV(IEC_CLK_INT); }
+			 if (x) { EIMSK |= _BV(IEC_CLK_INT); } \
+			 else { EIMSK &= (uint8_t)~_BV(IEC_CLK_INT); }
 #    define HAVE_CLOCK_IRQ
 #  endif
 #endif
@@ -1450,45 +1480,49 @@ typedef uint8_t iec_bus_t;
 #  define COND_INV(x) (x)
 #endif
 
-static inline __attribute__((always_inline)) void set_atn(uint8_t state) {
-  if (COND_INV(state))
-    IEC_OUTPUT |= IEC_OBIT_ATN;
-  else
-    IEC_OUTPUT &= ~IEC_OBIT_ATN;
+static inline __attribute__((always_inline)) void set_atn(uint8_t state)
+{
+	if (COND_INV(state))
+		IEC_OUTPUT |= IEC_OBIT_ATN;
+	else
+		IEC_OUTPUT &= ~IEC_OBIT_ATN;
 }
 
-static inline __attribute__((always_inline)) void set_data(uint8_t state) {
-  if (COND_INV(state))
-    IEC_OUTPUT |= IEC_OBIT_DATA;
-  else
-    IEC_OUTPUT &= ~IEC_OBIT_DATA;
+static inline __attribute__((always_inline)) void set_data(uint8_t state)
+{
+	if (COND_INV(state))
+		IEC_OUTPUT |= IEC_OBIT_DATA;
+	else
+		IEC_OUTPUT &= ~IEC_OBIT_DATA;
 }
 
-static inline __attribute__((always_inline)) void set_clock(uint8_t state) {
-  if (COND_INV(state))
-    IEC_OUTPUT |= IEC_OBIT_CLOCK;
-  else
-    IEC_OUTPUT &= ~IEC_OBIT_CLOCK;
+static inline __attribute__((always_inline)) void set_clock(uint8_t state)
+{
+	if (COND_INV(state))
+		IEC_OUTPUT |= IEC_OBIT_CLOCK;
+	else
+		IEC_OUTPUT &= ~IEC_OBIT_CLOCK;
 }
 
 #ifdef IEC_SEPARATE_OUT
-static inline __attribute__((always_inline)) void set_srq(uint8_t state) {
-  if (COND_INV(state))
-    IEC_OUTPUT |= IEC_OBIT_SRQ;
-  else
-    IEC_OUTPUT &= ~IEC_OBIT_SRQ;
+static inline __attribute__((always_inline)) void set_srq(uint8_t state)
+{
+	if (COND_INV(state))
+		IEC_OUTPUT |= IEC_OBIT_SRQ;
+	else
+		IEC_OUTPUT &= ~IEC_OBIT_SRQ;
 }
 #else
 /* this version of the function turns on the pullups when state is 1 */
 /* note: same pin for in/out implies inverted output via DDR */
 static inline __attribute__((always_inline)) void set_srq(uint8_t state) {
-  if (state) {
-    IEC_DDR  &= ~IEC_OBIT_SRQ;
-    IEC_PORT |=  IEC_OBIT_SRQ;
-  } else {
-    IEC_PORT &= ~IEC_OBIT_SRQ;
-    IEC_DDR  |=  IEC_OBIT_SRQ;
-  }
+	if (state) {
+		IEC_DDR  &= ~IEC_OBIT_SRQ;
+		IEC_PORT |=  IEC_OBIT_SRQ;
+	} else {
+		IEC_PORT &= ~IEC_OBIT_SRQ;
+		IEC_DDR  |=  IEC_OBIT_SRQ;
+	}
 }
 #endif
 
@@ -1500,40 +1534,40 @@ static inline __attribute__((always_inline)) void set_srq(uint8_t state) {
 /* IEC lines initialisation */
 static inline void iec_interface_init(void) {
 #ifdef IEC_SEPARATE_OUT
-  /* Set up the input port - pullups on all lines */
-  IEC_DDRIN  &= (uint8_t)~(IEC_BIT_ATN  | IEC_BIT_CLOCK  | IEC_BIT_DATA  | IEC_BIT_SRQ);
-  IEC_PORTIN |= IEC_BIT_ATN | IEC_BIT_CLOCK | IEC_BIT_DATA | IEC_BIT_SRQ;
-  /* Set up the output port - all lines high */
-  IEC_DDROUT |=            IEC_OBIT_ATN | IEC_OBIT_CLOCK | IEC_OBIT_DATA | IEC_OBIT_SRQ;
-  IEC_PORT   &= (uint8_t)~(IEC_OBIT_ATN | IEC_OBIT_CLOCK | IEC_OBIT_DATA | IEC_OBIT_SRQ);
+	/* Set up the input port - pullups on all lines */
+	IEC_DDRIN  &= (uint8_t)~(IEC_BIT_ATN  | IEC_BIT_CLOCK  | IEC_BIT_DATA  | IEC_BIT_SRQ);
+	IEC_PORTIN |= IEC_BIT_ATN | IEC_BIT_CLOCK | IEC_BIT_DATA | IEC_BIT_SRQ;
+	/* Set up the output port - all lines high */
+	IEC_DDROUT |=            IEC_OBIT_ATN | IEC_OBIT_CLOCK | IEC_OBIT_DATA | IEC_OBIT_SRQ;
+	IEC_PORT   &= (uint8_t)~(IEC_OBIT_ATN | IEC_OBIT_CLOCK | IEC_OBIT_DATA | IEC_OBIT_SRQ);
 #else
-  /* Pullups would be nice, but AVR can't switch from */
-  /* low output to hi-z input directly                */
-  IEC_DDR  &= (uint8_t)~(IEC_BIT_ATN | IEC_BIT_CLOCK | IEC_BIT_DATA | IEC_BIT_SRQ);
-  IEC_PORT &= (uint8_t)~(IEC_BIT_ATN | IEC_BIT_CLOCK | IEC_BIT_DATA);
-  /* SRQ is special-cased because it may be unconnected */
-  IEC_PORT |= IEC_BIT_SRQ;
+	/* Pullups would be nice, but AVR can't switch from */
+	/* low output to hi-z input directly                */
+	IEC_DDR  &= (uint8_t)~(IEC_BIT_ATN | IEC_BIT_CLOCK | IEC_BIT_DATA | IEC_BIT_SRQ);
+	IEC_PORT &= (uint8_t)~(IEC_BIT_ATN | IEC_BIT_CLOCK | IEC_BIT_DATA);
+	/* SRQ is special-cased because it may be unconnected */
+	IEC_PORT |= IEC_BIT_SRQ;
 #endif
 
 #ifdef HAVE_PARALLEL
-  /* set data lines to input with pullup */
-  PARALLEL_PDDR  = 0;
-  PARALLEL_PPORT = 0xff;
+	/* set data lines to input with pullup */
+	PARALLEL_PDDR  = 0;
+	PARALLEL_PPORT = 0xff;
 
-  /* set HSK_OUT and _IN to input with pullup */
-  PARALLEL_HDDR  &= ~(_BV(PARALLEL_HSK_OUT_BIT) |
-                      _BV(PARALLEL_HSK_IN_BIT));
-  PARALLEL_HPORT |= _BV(PARALLEL_HSK_OUT_BIT) |
-                    _BV(PARALLEL_HSK_IN_BIT);
+	/* set HSK_OUT and _IN to input with pullup */
+	PARALLEL_HDDR  &= ~(_BV(PARALLEL_HSK_OUT_BIT) |
+											_BV(PARALLEL_HSK_IN_BIT));
+	PARALLEL_HPORT |= _BV(PARALLEL_HSK_OUT_BIT) |
+										_BV(PARALLEL_HSK_IN_BIT);
 
-  /* enable interrupt for parallel handshake */
+	/* enable interrupt for parallel handshake */
 #  ifdef PARALLEL_PCINT_GROUP
-  /* excluse PCINT group */
-  PARALLEL_PCMSK |= _BV(PARALLEL_HSK_IN_BIT);
-  PCICR |= _BV(PARALLEL_PCINT_GROUP);
-  PCIFR |= _BV(PARALLEL_PCINT_GROUP);
+	/* excluse PCINT group */
+	PARALLEL_PCMSK |= _BV(PARALLEL_HSK_IN_BIT);
+	PCICR |= _BV(PARALLEL_PCINT_GROUP);
+	PCIFR |= _BV(PARALLEL_PCINT_GROUP);
 #  else
-  /* exclusive INTx line */
+	/* exclusive INTx line */
 #    error Implement me!
 #  endif
 #endif
@@ -1544,7 +1578,7 @@ static inline void iec_interface_init(void) {
 /* wrapper instead                                            */
 #  ifndef CONFIG_HAVE_IEEE
 static inline void bus_interface_init(void) {
-  iec_interface_init();
+	iec_interface_init();
 }
 #  endif
 #endif /* CONFIG_HAVE_IEC */
@@ -1555,25 +1589,25 @@ static inline void bus_interface_init(void) {
 #  ifdef IEEE_PCMSK
 /* IEEE-488 ATN interrupt using PCINT */
 static inline void set_atn_irq(uint8_t x) {
-  if (x)
-    IEEE_PCMSK |= _BV(IEEE_PCINT);
-  else
-    IEEE_PCMSK &= (uint8_t) ~_BV(IEEE_PCINT);
+	if (x)
+		IEEE_PCMSK |= _BV(IEEE_PCINT);
+	else
+		IEEE_PCMSK &= (uint8_t) ~_BV(IEEE_PCINT);
 }
 #  else
 /* Hardware ATN interrupt */
 static inline void set_atn_irq(uint8_t x) {
-  if (x)
-    EIMSK |= _BV(IEEE_ATN_INT);
-  else
-    EIMSK &= (uint8_t) ~_BV(IEEE_ATN_INT);
+	if (x)
+		EIMSK |= _BV(IEEE_ATN_INT);
+	else
+		EIMSK &= (uint8_t) ~_BV(IEEE_ATN_INT);
 }
 #  endif
 
 /* same weak alias problem as in IEC version */
 #  ifndef CONFIG_HAVE_IEC
 static inline void bus_interface_init(void) {
-  ieee_interface_init();
+	ieee_interface_init();
 }
 #  endif
 #endif /* CONFIG_HAVE_IEEE */
@@ -1589,22 +1623,22 @@ static inline void bus_interface_init(void) {
 /* SD SS pin default implementation */
 #ifndef SDCARD_SS_SPECIAL
 static inline __attribute__((always_inline)) void sdcard_set_ss(uint8_t state) {
-  if (state)
-    SPI_PORT |= SPI_SS;
-  else
-    SPI_PORT &= ~SPI_SS;
+	if (state)
+		SPI_PORT |= SPI_SS;
+	else
+		SPI_PORT &= ~SPI_SS;
 }
 #endif
 
 /* Display interrupt pin */
 #ifdef CONFIG_REMOTE_DISPLAY
 static inline void display_intrq_init(void) {
-  /* Enable pullup on the interrupt line */
-  SOFTI2C_PORT |= _BV(SOFTI2C_BIT_INTRQ);
+	/* Enable pullup on the interrupt line */
+	SOFTI2C_PORT |= _BV(SOFTI2C_BIT_INTRQ);
 }
 
 static inline uint8_t display_intrq_active(void) {
-  return !(SOFTI2C_PIN & _BV(SOFTI2C_BIT_INTRQ));
+	return !(SOFTI2C_PIN & _BV(SOFTI2C_BIT_INTRQ));
 }
 #endif
 
@@ -1619,8 +1653,8 @@ static inline uint8_t display_intrq_active(void) {
 /* file name/command dump takes too long if the buffer is        */
 /* smaller than the output from uart_trace                       */
 #if defined(CONFIG_PARALLEL_DOLPHIN) && \
-    defined(CONFIG_UART_DEBUG) && \
-  CONFIG_UART_BUF_SHIFT < 8  // 7 may work with short file names
+		defined(CONFIG_UART_DEBUG) && \
+	CONFIG_UART_BUF_SHIFT < 8  // 7 may work with short file names
 #  error Enabling both DolphinDOS and UART debugging requires CONFIG_UART_BUF_SHIFT >= 8 !
 #endif
 

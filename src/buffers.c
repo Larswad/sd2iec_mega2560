@@ -1,29 +1,29 @@
 /* sd2iec - SD/MMC to Commodore serial bus interface/controller
-   Copyright (C) 2007-2017  Ingo Korb <ingo@akana.de>
+	 Copyright (C) 2007-2017  Ingo Korb <ingo@akana.de>
 
-   Inspired by MMC2IEC by Lars Pontoppidan et al.
+	 Inspired by MMC2IEC by Lars Pontoppidan et al.
 
-   FAT filesystem access based on code from ChaN and Jim Brain, see ff.c|h.
+	 FAT filesystem access based on code from ChaN and Jim Brain, see ff.c|h.
 
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; version 2 of the License only.
+	 This program is free software; you can redistribute it and/or modify
+	 it under the terms of the GNU General Public License as published by
+	 the Free Software Foundation; version 2 of the License only.
 
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
+	 This program is distributed in the hope that it will be useful,
+	 but WITHOUT ANY WARRANTY; without even the implied warranty of
+	 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	 GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+	 You should have received a copy of the GNU General Public License
+	 along with this program; if not, write to the Free Software
+	 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 
-   buffers.c: Internal buffer management
+	 buffers.c: Internal buffer management
 */
 
-#include <stdint.h>
 #include <string.h>
+#include "utils.h"
 #include "config.h"
 #include "dirent.h"
 #include "errormsg.h"
@@ -51,8 +51,10 @@ uint8_t active_buffers;
  * the caller doesn't need to check if the callbacks are valid.
  * It always returns 0 for success.
  */
-uint8_t callback_dummy(buffer_t *buf) {
-  return 0;
+uint8_t callback_dummy(buffer_t *buf)
+{
+	VAR_UNUSED(buf);
+	return 0;
 }
 
 /**
@@ -60,21 +62,22 @@ uint8_t callback_dummy(buffer_t *buf) {
  *
  * This function initialized all the buffer-related data structures.
  */
-void buffers_init(void) {
-  uint8_t i;
+void buffers_init(void)
+{
+	uint8_t i;
 
-  memset(buffers,0,sizeof(buffers));
-  for (i=0;i<CONFIG_BUFFER_COUNT;i++)
-    buffers[i].data = bufferdata + 256*i;
+	memset(buffers,0,sizeof(buffers));
+	for (i=0;i<CONFIG_BUFFER_COUNT;i++)
+		buffers[i].data = bufferdata + 256*i;
 
-  buffers[ERRORBUFFER_IDX].data      = error_buffer;
-  buffers[ERRORBUFFER_IDX].secondary = 15;
-  buffers[ERRORBUFFER_IDX].allocated = 1;
-  buffers[ERRORBUFFER_IDX].read      = 1;
-  buffers[ERRORBUFFER_IDX].write     = 1;
-  buffers[ERRORBUFFER_IDX].sendeoi   = 1;
-  buffers[ERRORBUFFER_IDX].refill    = set_ok_message;
-  buffers[ERRORBUFFER_IDX].cleanup   = callback_dummy;
+	buffers[ERRORBUFFER_IDX].data      = error_buffer;
+	buffers[ERRORBUFFER_IDX].secondary = 15;
+	buffers[ERRORBUFFER_IDX].allocated = 1;
+	buffers[ERRORBUFFER_IDX].read      = 1;
+	buffers[ERRORBUFFER_IDX].write     = 1;
+	buffers[ERRORBUFFER_IDX].sendeoi   = 1;
+	buffers[ERRORBUFFER_IDX].refill    = set_ok_message;
+	buffers[ERRORBUFFER_IDX].cleanup   = callback_dummy;
 }
 
 /**
@@ -83,15 +86,16 @@ void buffers_init(void) {
  * This function allocates the specified buffer and marks it as used.
  * Returns without doing anything if the buffer is already allocated.
  */
-static void alloc_specific_buffer(uint8_t bufnum) {
-  if (!buffers[bufnum].allocated) {
-    /* Clear everything except the data pointer */
-    memset(sizeof(uint8_t *)+(char *)&(buffers[bufnum]),0,sizeof(buffer_t)-sizeof(uint8_t *));
-    buffers[bufnum].allocated = 1;
-    buffers[bufnum].secondary = BUFFER_SEC_SYSTEM;
-    buffers[bufnum].refill    = callback_dummy;
-    buffers[bufnum].cleanup   = callback_dummy;
-  }
+static void alloc_specific_buffer(uint8_t bufnum)
+{
+	if (!buffers[bufnum].allocated) {
+		/* Clear everything except the data pointer */
+		memset(sizeof(uint8_t *) + (char*)&(buffers[bufnum]), 0, sizeof(buffer_t) - sizeof(uint8_t *));
+		buffers[bufnum].allocated = 1;
+		buffers[bufnum].secondary = BUFFER_SEC_SYSTEM;
+		buffers[bufnum].refill    = callback_dummy;
+		buffers[bufnum].cleanup   = callback_dummy;
+	}
 }
 
 /**
@@ -100,18 +104,19 @@ static void alloc_specific_buffer(uint8_t bufnum) {
  * This function allocates a buffer and marks it as used. Returns a
  * pointer to the buffer structure or NULL of no buffer is free.
  */
-buffer_t *alloc_system_buffer(void) {
-  uint8_t i;
+buffer_t* alloc_system_buffer(void)
+{
+	uint8_t i;
 
-  for (i=0;i<CONFIG_BUFFER_COUNT;i++) {
-    if (!buffers[i].allocated) {
-      alloc_specific_buffer(i);
-      return &buffers[i];
-    }
-  }
+	for (i=0;i<CONFIG_BUFFER_COUNT;i++) {
+		if (!buffers[i].allocated) {
+			alloc_specific_buffer(i);
+			return &buffers[i];
+		}
+	}
 
-  set_error(ERROR_NO_CHANNEL);
-  return NULL;
+	set_error(ERROR_NO_CHANNEL);
+	return NULL;
 }
 
 /**
@@ -121,14 +126,15 @@ buffer_t *alloc_system_buffer(void) {
  * turn on the busy LED to notify the user. Returns a pointer to the
  * buffer structure or NULL if no buffer is free.
  */
-buffer_t *alloc_buffer(void) {
-  buffer_t *buf = alloc_system_buffer();
-  if (buf != NULL) {
-    buf->secondary = 0;
-    active_buffers++;
-    set_busy_led(1);
-  }
-  return buf;
+buffer_t* alloc_buffer(void)
+{
+	buffer_t *buf = alloc_system_buffer();
+	if (buf != NULL) {
+		buf->secondary = 0;
+		active_buffers++;
+		set_busy_led(1);
+	}
+	return buf;
 }
 
 /**
@@ -141,46 +147,47 @@ buffer_t *alloc_buffer(void) {
  * not enough buffers are free. The data segments of the allocated
  * buffers are guaranteed to be continuous.
  */
-buffer_t *alloc_linked_buffers(uint8_t count) {
-  uint8_t i,freebufs,start;
+buffer_t *alloc_linked_buffers(uint8_t count)
+{
+	uint8_t i,freebufs,start;
 
-  freebufs = 0;
-  start    = 0;
-  for (i=0;i<CONFIG_BUFFER_COUNT;i++) {
-    if (buffers[i].allocated) {
-      /* Look for continuous buffers */
-      /* Switching data segments is possible, but probably not required */
-      freebufs = 0;
-    } else {
-      if (freebufs == 0)
-        start = i;
-      freebufs++;
-      /* Found enough free space */
-      if (freebufs == count)
-        break;
-    }
-  }
+	freebufs = 0;
+	start    = 0;
+	for (i=0;i<CONFIG_BUFFER_COUNT;i++) {
+		if (buffers[i].allocated) {
+			/* Look for continuous buffers */
+			/* Switching data segments is possible, but probably not required */
+			freebufs = 0;
+		} else {
+			if (freebufs == 0)
+				start = i;
+			freebufs++;
+			/* Found enough free space */
+			if (freebufs == count)
+				break;
+		}
+	}
 
-  if (freebufs < count) {
-    set_error(ERROR_NO_CHANNEL);
-    return NULL;
-  }
+	if (freebufs < count) {
+		set_error(ERROR_NO_CHANNEL);
+		return NULL;
+	}
 
-  /* Chain the buffers */
-  for (i=0;i<count;i++) {
-    alloc_specific_buffer(start+i);
-    active_buffers++;
-    buffers[start+i].secondary = 0;
-    buffers[start+i].pvt.buffer.next  = &buffers[start+i+1];
-    buffers[start+i].pvt.buffer.first = &buffers[start];
-    buffers[start+i].pvt.buffer.size  = count;
-  }
+	/* Chain the buffers */
+	for (i=0;i<count;i++) {
+		alloc_specific_buffer(start+i);
+		active_buffers++;
+		buffers[start+i].secondary = 0;
+		buffers[start+i].pvt.buffer.next  = &buffers[start+i+1];
+		buffers[start+i].pvt.buffer.first = &buffers[start];
+		buffers[start+i].pvt.buffer.size  = count;
+	}
 
-  set_busy_led(1);
+	set_busy_led(1);
 
-  buffers[start+count-1].pvt.buffer.next = NULL;
+	buffers[start+count-1].pvt.buffer.next = NULL;
 
-  return &buffers[start];
+	return &buffers[start];
 }
 
 /**
@@ -190,8 +197,8 @@ buffer_t *alloc_linked_buffers(uint8_t count) {
  * This function calls the cleanup function and deallocates the buffer.
  */
 void cleanup_and_free_buffer(buffer_t *buffer) {
-  buffer->cleanup(buffer);
-  free_buffer(buffer);
+	buffer->cleanup(buffer);
+	free_buffer(buffer);
 }
 
 /**
@@ -205,18 +212,18 @@ void cleanup_and_free_buffer(buffer_t *buffer) {
  * buffers.
  */
 void free_buffer(buffer_t *buffer) {
-  if (buffer == NULL) return;
-  if (buffer->secondary == 15) return;
-  if (!buffer->allocated) return;
+	if (buffer == NULL) return;
+	if (buffer->secondary == 15) return;
+	if (!buffer->allocated) return;
 
-  buffer->allocated = 0;
+	buffer->allocated = 0;
 
-  if (buffer->dirty)
-    active_buffers -= 16;
-  if (buffer->secondary < BUFFER_SEC_SYSTEM)
-    active_buffers--;
+	if (buffer->dirty)
+		active_buffers -= 16;
+	if (buffer->secondary < BUFFER_SEC_SYSTEM)
+		active_buffers--;
 
-  update_leds();
+	update_leds();
 }
 
 /**
@@ -231,24 +238,24 @@ void free_buffer(buffer_t *buffer) {
  * set, returns 0.
  */
 uint8_t free_multiple_buffers(uint8_t flags) {
-  uint8_t i,res;
+	uint8_t i,res;
 
-  res = 0;
+	res = 0;
 
-  for (i=0;i<CONFIG_BUFFER_COUNT;i++) {
-    if (buffers[i].allocated) {
-      if ((flags & FMB_FREE_SYSTEM) || buffers[i].secondary < BUFFER_SEC_SYSTEM) {
-        if ((flags & FMB_FREE_STICKY) || !buffers[i].sticky) {
-          if (flags & FMB_CLEAN) {
-            res = res || buffers[i].cleanup(&buffers[i]);
-          }
-          free_buffer(&buffers[i]);
-        }
-      }
-    }
-  }
+	for (i=0;i<CONFIG_BUFFER_COUNT;i++) {
+		if (buffers[i].allocated) {
+			if ((flags & FMB_FREE_SYSTEM) || buffers[i].secondary < BUFFER_SEC_SYSTEM) {
+				if ((flags & FMB_FREE_STICKY) || !buffers[i].sticky) {
+					if (flags & FMB_CLEAN) {
+						res = res || buffers[i].cleanup(&buffers[i]);
+					}
+					free_buffer(&buffers[i]);
+				}
+			}
+		}
+	}
 
-  return res;
+	return res;
 }
 
 /**
@@ -259,14 +266,15 @@ uint8_t free_multiple_buffers(uint8_t flags) {
  * secondary address is the same as the one given. Returns NULL if
  * no matching buffer was found.
  */
-buffer_t *find_buffer(uint8_t secondary) {
-  uint8_t i;
+buffer_t *find_buffer(uint8_t secondary)
+{
+	uint8_t i;
 
-  for (i=0;i<CONFIG_BUFFER_COUNT+1;i++) {
-    if (buffers[i].allocated && buffers[i].secondary == secondary)
-      return &buffers[i];
-  }
-  return NULL;
+	for (i=0;i<CONFIG_BUFFER_COUNT+1;i++) {
+		if (buffers[i].allocated && buffers[i].secondary == secondary)
+			return &buffers[i];
+	}
+	return NULL;
 }
 
 /**
@@ -276,12 +284,13 @@ buffer_t *find_buffer(uint8_t secondary) {
  * This function marks the given buffer as dirty, tracks
  * this in active_buffers and turns on the dirty LED.
  */
-void mark_buffer_dirty(buffer_t *buf) {
-  if (!buf->dirty) {
-    buf->dirty = 1;
-    active_buffers += 16;
-    set_dirty_led(1);
-  }
+void mark_buffer_dirty(buffer_t *buf)
+{
+	if(!buf->dirty) {
+		buf->dirty = 1;
+		active_buffers += 16;
+		set_dirty_led(1);
+	}
 }
 
 /**
@@ -291,11 +300,12 @@ void mark_buffer_dirty(buffer_t *buf) {
  * This function marks the given buffer as clean, tracks
  * this in active_buffers and turns off the dirty LED if required.
  */
-void mark_buffer_clean(buffer_t *buf) {
-  if (buf->dirty) {
-    buf->dirty = 0;
-    active_buffers -= 16;
-    if (get_dirty_buffer_count() == 0)
-      set_dirty_led(0);
-  }
+void mark_buffer_clean(buffer_t *buf)
+{
+	if (buf->dirty) {
+		buf->dirty = 0;
+		active_buffers -= 16;
+		if (get_dirty_buffer_count() == 0)
+			set_dirty_led(0);
+	}
 }

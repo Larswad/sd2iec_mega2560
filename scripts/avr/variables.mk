@@ -4,11 +4,11 @@
 ASMSRC = avr/crc7asm.S
 
 ifeq ($(CONFIG_HAVE_IEC),y)
-  ASMSRC += avr/fastloader-ll.S
+	ASMSRC += avr/fastloader-ll.S
 endif
 
 ifdef NEED_I2C
-  SRC += avr/softi2c.c
+	SRC += avr/softi2c.c
 endif
 
 #---------------- Toolchain ----------------
@@ -27,41 +27,41 @@ MCU    := $(CONFIG_MCU)
 CRCGEN := scripts/avr/crcgen-avr.pl
 
 ifeq ($(MCU),atmega128)
-  BINARY_LENGTH = 0x1f000
+	BINARY_LENGTH = 0x1f000
 #  EFUSE = 0xff
 #  HFUSE = 0x91
 #  LFUSE = 0xaf
 else ifeq ($(MCU),atmega1281)
-  BINARY_LENGTH = 0x1f000
-  BOOTLDRSIZE = 0x0800
-  EFUSE = 0xff
-  HFUSE = 0xd2
-  LFUSE = 0xfc
+	BINARY_LENGTH = 0x1f000
+	BOOTLDRSIZE = 0x0800
+	EFUSE = 0xff
+	HFUSE = 0xd2
+	LFUSE = 0xfc
 else ifeq ($(MCU),atmega2560)
-  BINARY_LENGTH = 0x3f000
-  EFUSE = 0xf4
-  HFUSE = 0xd9
-  LFUSE = 0xff
+	BINARY_LENGTH = 0x3f000
+	EFUSE = 0xfd
+	HFUSE = 0xd8
+	LFUSE = 0xff
 else ifeq ($(MCU),atmega2561)
-  BINARY_LENGTH = 0x3f000
-  EFUSE = 0xfd
-  HFUSE = 0x93
-  LFUSE = 0xef
+	BINARY_LENGTH = 0x3f000
+	EFUSE = 0xfd
+	HFUSE = 0x93
+	LFUSE = 0xef
 else ifeq ($(MCU),atmega644)
-  BINARY_LENGTH = 0xf000
-  EFUSE = 0xfd
-  HFUSE = 0x93
-  LFUSE = 0xef
+	BINARY_LENGTH = 0xf000
+	EFUSE = 0xfd
+	HFUSE = 0x93
+	LFUSE = 0xef
 else ifeq ($(MCU),atmega644p)
-  BINARY_LENGTH = 0xf000
-  EFUSE = 0xfd
-  HFUSE = 0x91
-  LFUSE = 0xef
+	BINARY_LENGTH = 0xf000
+	EFUSE = 0xfd
+	HFUSE = 0x91
+	LFUSE = 0xef
 else ifeq ($(MCU),atmega1284p)
-  BINARY_LENGTH = 0x1f000
-  EFUSE = 0xfd
-  HFUSE = 0xd2
-  LFUSE = 0xe7
+	BINARY_LENGTH = 0x1f000
+	EFUSE = 0xfd
+	HFUSE = 0xd2
+	LFUSE = 0xe7
 else
 .PHONY: nochip
 nochip:
@@ -102,25 +102,25 @@ AVRDUDE_WRITE_FLASH = -U flash:w:$(TARGET).hex
 
 # Allow fuse overrides from the config file
 ifdef CONFIG_EFUSE
-  EFUSE := CONFIG_EFUSE
+	EFUSE := CONFIG_EFUSE
 endif
 ifdef CONFIG_HFUSE
-  HFUSE := CONFIG_HFUSE
+	HFUSE := CONFIG_HFUSE
 endif
 ifdef CONFIG_LFUSE
-  LFUSE := CONFIG_LFUSE
+	LFUSE := CONFIG_LFUSE
 endif
 
 # Calculate command line arguments for fuses
 AVRDUDE_WRITE_FUSES :=
 ifdef EFUSE
-  AVRDUDE_WRITE_FUSES += -U efuse:w:$(EFUSE):m
+	AVRDUDE_WRITE_FUSES += -U efuse:w:$(EFUSE):m
 endif
 ifdef HFUSE
-  AVRDUDE_WRITE_FUSES += -U hfuse:w:$(HFUSE):m
+	AVRDUDE_WRITE_FUSES += -U hfuse:w:$(HFUSE):m
 endif
 ifdef LFUSE
-  AVRDUDE_WRITE_FUSES += -U lfuse:w:$(LFUSE):m
+	AVRDUDE_WRITE_FUSES += -U lfuse:w:$(LFUSE):m
 endif
 
 
@@ -166,6 +166,6 @@ endif
 
 #---------------- Config ----------------
 ifeq ($(CONFIG_STACK_TRACKING),y)
-  ARCH_CFLAGS += -finstrument-functions
+	ARCH_CFLAGS += -finstrument-functions
 endif
 
