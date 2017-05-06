@@ -28,6 +28,8 @@
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include <stdbool.h>
+
 /* Include avrcompat.h to get the PA0..PD7 macros on 1284P */
 #include "avrcompat.h"
 #include "utils.h"
@@ -1146,6 +1148,7 @@ static inline void buttons_init(void) {
 /* Initialize all pins and interrupts related to SD - except SPI */
 static inline void sdcard_interface_init(void)
 {
+#if 0
 	// card detect (SD1)
 	DDRE  and_eq ~_BV(PE4);
 	PORTE or_eq  _BV(PE4);
@@ -1161,9 +1164,9 @@ static inline void sdcard_interface_init(void)
 	// chip select (SD1)
 	PORTE or_eq _BV(PE3);
 	DDRE or_eq _BV(PE3);
-
+#endif
 	// Note: Wrapping SD2 in CONFIG_TWINSD may be a good idea
-	#if 0
+#if 0
 	/* Declaration of the interrupt handler for SD card 2 change */
 	#  define SD2_CHANGE_HANDLER ISR(INT9_vect)
 	/* chip select (SD2) */
@@ -1178,19 +1181,22 @@ static inline void sdcard_interface_init(void)
 	/* card change interrupt (SD2) */
 	EICRA |=  _BV(ISC90); // Change interrupt
 	EIMSK |=  _BV(INT9);  // Change interrupt
-	#endif
+#endif
 }
 
 /* sdcard_detect() must return non-zero while a card is inserted */
 /* This must be a pin capable of generating interrupts.          */
 static inline uint8_t sdcard_detect(void)
 {
-	return not (PINE bitand _BV(PE4));
+	// We have no detect pin on this shield!
+	return true;
+//	return not (PINE bitand _BV(PE4));
 }
 
 /* SD card 1 is assumed to use the standard SS pin   */
 /* If that's not true, #define SDCARD_SS_SPECIAL and */
 /* implement this function:                          */
+/*
 #define SDCARD_SS_SPECIAL
 static inline __attribute__((always_inline)) void sdcard_set_ss(uint8_t state)
 {
@@ -1199,10 +1205,12 @@ static inline __attribute__((always_inline)) void sdcard_set_ss(uint8_t state)
 	else
 		PORTE and_eq ~_BV(PE3);
 }
+*/
 
 /* Returns non-zero when the currently inserted card is write-protected */
 static inline uint8_t sdcard_wp(void)
 {
+	// We have no write protect pin on this shield!
 	return 0;
 }
 
@@ -1236,7 +1244,7 @@ static inline __attribute__((always_inline)) void sdcard2_set_ss(uint8_t state)
 
 /* SPI clock divisors - the slow one must be 400KHz or slower,        */
 /* the fast one can be as high as you thing your hardware will handle */
-#  define SPI_DIVISOR_SLOW 40
+#  define SPI_DIVISOR_SLOW 32
 #  define SPI_DIVISOR_FAST 4
 
 
@@ -1266,8 +1274,9 @@ static inline void leds_init(void)
 	/* Note: Depending on the chip and register these lines can compile */
 	/*       to one instruction each on AVR. For two bits this is one   */
 	/*       instruction shorter than "DDRC |= _BV(PC0) | _BV(PC1);"    */
-	DDRH |= _BV(PH4);
-	DDRH |= _BV(PH3);
+	DDRB |= _BV(PB7);
+	// TODO: Implement a second led (RED one!).
+	//DDRH |= _BV(PH3);
 }
 
 // --- "BUSY" led, recommended color: green (usage similiar to 1541 LED) ---
@@ -1285,16 +1294,16 @@ static inline __attribute__((always_inline)) void set_busy_led(uint8_t state)
 static inline __attribute__((always_inline)) void set_dirty_led(uint8_t state)
 {
 	if(state)
-		PORTH and_eq ~_BV(PH4);
+		PORTB and_eq ~_BV(PB7);
 	else
-		PORTH or_eq _BV(PH4);
+		PORTB or_eq _BV(PB7);
 }
 
 // Toggle function used for error blinking
 static inline void toggle_dirty_led(void)
 {
 	// Sufficiently new AVR cores have a toggle function
-	PINH or_eq _BV(PH4);
+	PINB or_eq _BV(PB7);
 }
 
 
@@ -1446,7 +1455,7 @@ typedef uint8_t iec_bus_t;
 #endif
 
 /* The AVR asm modules don't support noninverted output lines, */
-/* so this can be staticalle defined for all configurations.   */
+/* so this can be statically defined for all configurations.   */
 #define IEC_OUTPUTS_INVERTED
 
 #ifdef IEC_PCMSK
