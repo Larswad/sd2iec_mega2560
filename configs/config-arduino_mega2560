@@ -20,7 +20,7 @@
 #  along with this program; if not, write to the Free Software
 #  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
-# config-arduino_mega2560: sd2iec configuration for Arduino AVR MEGA2560 board or clone.
+# config-arduino_mega2560: sd2iec configuration for Arduino MEGA2560 (AVR) board or compatible clone.
 #
 #
 # This file is included in the main sd2iec Makefile and also parsed
@@ -28,12 +28,14 @@
 
 CONFIG_ARCH=avr
 CONFIG_MCU=atmega2560
+CONFIG_HARDWARE_VARIANT=10
+CONFIG_HARDWARE_NAME=arduino_mega2560
 CONFIG_LINKER_RELAX=y
 CONFIG_MCU_FREQ=8000000
 
+# We do not provide boot loader. Use the original arduino one, we don't want to mess that up.
 #CONFIG_BOOTLOADER=y
 #CONFIG_BOOT_DEVID=0x5053524c
-#0x1e9801
 
 # Enable UART debugging - requires 24 bytes plus buffer size in RAM
 CONFIG_UART_DEBUG=y
@@ -44,9 +46,9 @@ CONFIG_UART_BUF_SHIFT=7
 #CONFIG_DEADLOCK_ME_HARDER=y
 CONFIG_COMMAND_CHANNEL_DUMP=y
 
-# If the on-chip crystal may deviate from chip to chip, the turbos must be adapted cycle wise in
-# the fastloader-ii.S implementation. However, this must be TESTED thorougly on several mega's.
-# An alternative is to tune the internal oscillator using the OSCCAL value.
+# If the on board (external) osciallator deviates from chip to chip (enough to cause a few cycles variance),
+# the turbos must be adapted cycle wise in the fastloader-ii.S implementation.
+# However, this must be TESTED thorougly on several mega's.
 CONFIG_LOADER_TURBODISK=y
 CONFIG_LOADER_FC3=y
 CONFIG_LOADER_DREAMLOAD=n
@@ -58,27 +60,28 @@ CONFIG_LOADER_WHEELS=y
 CONFIG_LOADER_NIPPON=y
 CONFIG_LOADER_AR6=y
 CONFIG_LOADER_ELOAD1=y
+CONFIG_LOADER_MMZAK=y
+CONFIG_LOADER_N0SDOS=y
 
-# Define this to adjust to turbo to the arduino mega. May be dependant on crystal individuality.
+# Define this to adjust the turbo (loading part) of the arduino mega with a few cycles.
+# This MAY be dependant on crystal individuality.
 CONFIG_MEGA_CYCLE_ADJUST=y
 
-CONFIG_HARDWARE_VARIANT=10
-CONFIG_HARDWARE_NAME=arduino_mega2560
 CONFIG_SD_AUTO_RETRIES=10
 CONFIG_SD_DATACRC=y
 CONFIG_ERROR_BUFFER_SIZE=100
 CONFIG_COMMAND_BUFFER_SIZE=120
 CONFIG_BUFFER_COUNT=6
 CONFIG_MAX_PARTITIONS=2
+# The RTC ise optional, but can be provided as a shield (DS1307 compatible).
 #CONFIG_RTC_DSRTC=y
 #CONFIG_RTC_PCF8583=y
 #CONFIG_REMOTE_DISPLAY=y
 #CONFIG_DISPLAY_BUFFER_SIZE=40
 CONFIG_HAVE_IEC=y
 CONFIG_M2I=y
+
 # There is not room in RAM for a P00CACHE.
 CONFIG_P00CACHE=n
 #CONFIG_P00CACHE_SIZE=12000
 CONFIG_HAVE_EEPROMFS=y
-CONFIG_LOADER_MMZAK=y
-CONFIG_LOADER_N0SDOS=y

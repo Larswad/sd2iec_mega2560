@@ -31,7 +31,7 @@
 
 #define VAR_UNUSED(x) (void)(x)
 
-/* Side-effect safe min/max */
+// Side-effect safe min/max
 #define max(a,b) \
 			 ({ typeof (a) _a = (a); \
 					 typeof (b) _b = (b); \
@@ -44,17 +44,17 @@
 
 
 /* Write a number to a string as ASCII */
-uint8_t *appendnumber(uint8_t *msg, uint8_t value);
+uint8_t* appendnumber(uint8_t* msg, uint8_t value);
 
 /* Convert between integer and BCD */
 uint8_t bcd2int(uint8_t value);
 uint8_t int2bcd(uint8_t value);
 
 /* Tokenize a string like strtok_r, but with a single delimiter character only */
-uint8_t *ustr1tok(uint8_t *str, const uint8_t delim, uint8_t **saveptr);
+uint8_t* ustr1tok(uint8_t* str, const uint8_t delim, uint8_t** saveptr);
 
 /* ASCII to PETSCII string conversion */
-void asc2pet(uint8_t *buf);
+void asc2pet(uint8_t* buf);
 // note: not moving pet2asc out of fatops saves 6 bytes on AVR
 
 #endif

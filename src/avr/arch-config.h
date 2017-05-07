@@ -1130,30 +1130,29 @@ static inline void buttons_init(void) {
 
 #elif CONFIG_HARDWARE_VARIANT == 10
 
-/* ------------------------------------------------------------------------ */
-/* ---- Hardware configuration: Arduino Mega 2560 or clone ---- */
-/* ------------------------------------------------------------------------ */
-/* This is a commented example for most of the available options    */
-/* in case someone wants to build Yet Another[tm] hardware variant. */
-/* Some of the values are chosen randomly, so this variant is not   */
-/* expected to compile successfully.                                */
+// ------------------------------------------------------------------------
+// ---- Hardware configuration: Arduino Mega 2560 or clone ----
+// ------------------------------------------------------------------------
+// NOTE: A lot of features are optional and can be added with additional components
+// or complete shields. Such features are however assumed to be not present and is
+// therefore commented out and replaced with dummy returns that fits a simpler default configuration.
 
 /*** SD card support ***/
-/* If your device supports SD cards by default, define this symbol. */
-#  define HAVE_SD
+// If your device supports SD cards by default, define this symbol.
+#define HAVE_SD
 
-/* Declaration of the interrupt handler for SD card change */
-#  define SD_CHANGE_HANDLER ISR(INT4_vect)
+// Declaration of the interrupt handler for SD card change
+#define SD_CHANGE_HANDLER ISR(INT4_vect)
 
-/* Initialize all pins and interrupts related to SD - except SPI */
+// Initialize all pins and interrupts related to SD - except SPI
 static inline void sdcard_interface_init(void)
 {
 #if 0
 	// card detect (SD1)
-	DDRE  and_eq ~_BV(PE4);
+	DDRE  and_eq compl _BV(PE4);
 	PORTE or_eq  _BV(PE4);
 	// write protect (SD1) (NOT WIRED YET, PE2 unused on the Arduino)
-	DDRE and_eq ~_BV(PE2);
+	DDRE and_eq compl _BV(PE2);
 	PORTE or_eq _BV(PE2);
 
 	// card change interrupt (SD1)
@@ -1184,19 +1183,20 @@ static inline void sdcard_interface_init(void)
 #endif
 }
 
-/* sdcard_detect() must return non-zero while a card is inserted */
-/* This must be a pin capable of generating interrupts.          */
+// sdcard_detect() must return non-zero while a card is inserted
+// This must be a pin capable of generating interrupts.
 static inline uint8_t sdcard_detect(void)
 {
-	// We have no detect pin on this shield!
+	// OPTIONAL: Add detect pin for sd card if the shield has such.
+	// Simply return true otherwise, fake always available.
 	return true;
 //	return not (PINE bitand _BV(PE4));
 }
 
-/* SD card 1 is assumed to use the standard SS pin   */
-/* If that's not true, #define SDCARD_SS_SPECIAL and */
-/* implement this function:                          */
-/*
+// SD card 1 is assumed to use the standard SS pin
+// If that's not true, #define SDCARD_SS_SPECIAL and
+// implement this function:
+#if 0
 #define SDCARD_SS_SPECIAL
 static inline __attribute__((always_inline)) void sdcard_set_ss(uint8_t state)
 {
@@ -1205,17 +1205,18 @@ static inline __attribute__((always_inline)) void sdcard_set_ss(uint8_t state)
 	else
 		PORTE and_eq ~_BV(PE3);
 }
-*/
+#endif
 
-/* Returns non-zero when the currently inserted card is write-protected */
+// Returns non-zero when the currently inserted card is write-protected
 static inline uint8_t sdcard_wp(void)
 {
-	// We have no write protect pin on this shield!
-	return 0;
+	// OPTIONAL: Add write protect pin for sd card, if the shield has such.
+	// Otherwise simply return false (fake always write enabled).
+	return false;
 }
 
-/* Support for a second SD card - use CONFIG_TWINSD=y in your config file to enable! */
-/* Same as the two functions above, but for card 2 */
+// Support for a second SD card - use CONFIG_TWINSD=y in your config file to enable!
+// Same as the two functions above, but for card 2
 static inline uint8_t sdcard2_detect(void)
 {
 	return 0;
@@ -1225,43 +1226,44 @@ static inline uint8_t sdcard2_wp(void)
 	return 0;
 }
 
-/* SD card 2 CS pin */
+// SD card 2 CS pin
 static inline __attribute__((always_inline)) void sdcard2_set_ss(uint8_t state)
 {
 	VAR_UNUSED(state);
 }
 
 /* SD Card supply voltage - choose the one appropiate to your board */
-/* #  define SD_SUPPLY_VOLTAGE (1L<<15)  / * 2.7V - 2.8V */
-/* #  define SD_SUPPLY_VOLTAGE (1L<<16)  / * 2.8V - 2.9V */
-/* #  define SD_SUPPLY_VOLTAGE (1L<<17)  / * 2.9V - 3.0V */
-/* #  define SD_SUPPLY_VOLTAGE (1L<<18)  / * 3.0V - 3.1V */
-/* #  define SD_SUPPLY_VOLTAGE (1L<<19)  / * 3.1V - 3.2V */
-/* #  define SD_SUPPLY_VOLTAGE (1L<<20)  / * 3.2V - 3.3V */
-#  define SD_SUPPLY_VOLTAGE (1L << 21)  /* 3.3V - 3.4V */
-/* #  define SD_SUPPLY_VOLTAGE (1L<<22)  / * 3.4V - 3.5V */
-/* #  define SD_SUPPLY_VOLTAGE (1L<<23)  / * 3.5V - 3.6V */
+// #  define SD_SUPPLY_VOLTAGE (1L<<15)  // 2.7V - 2.8V
+// #  define SD_SUPPLY_VOLTAGE (1L<<16)  // 2.8V - 2.9V
+// #  define SD_SUPPLY_VOLTAGE (1L<<17)  // 2.9V - 3.0V
+// #  define SD_SUPPLY_VOLTAGE (1L<<18)  // 3.0V - 3.1V
+// #  define SD_SUPPLY_VOLTAGE (1L<<19)  // 3.1V - 3.2V
+// #  define SD_SUPPLY_VOLTAGE (1L<<20)  // 3.2V - 3.3V
+#  define SD_SUPPLY_VOLTAGE (1L << 21)  // 3.3V - 3.4V
+// #  define SD_SUPPLY_VOLTAGE (1L<<22)  // 3.4V - 3.5V
+// #  define SD_SUPPLY_VOLTAGE (1L<<23)  // 3.5V - 3.6V
 
-/* SPI clock divisors - the slow one must be 400KHz or slower,        */
-/* the fast one can be as high as you thing your hardware will handle */
+// SPI clock divisors - the slow one must be 400KHz or slower,
+// the fast one can be as high as you thing your hardware will handle
 #  define SPI_DIVISOR_SLOW 32
 #  define SPI_DIVISOR_FAST 4
 
 
 /*** Device address selection ***/
-/* device_hw_address() returns the hardware-selected device address */
+// device_hw_address() returns the hardware-selected device address
 static inline uint8_t device_hw_address(void)
 {
-	// TODO: Attach and implement a 2-button DIP-switch.
-	// return 8 + !(PIND & _BV(PD7)) + 2*!(PIND & _BV(PD5));
+	// OPTIONAL: Attach and implement a 2-button DIP-switch.
+	// If not we return always a hard coded number.
 	return 8;
+	// return 8 + not(PIND bitand _BV(PD7)) + 2 * not(PIND bitand _BV(PD5));
 }
 
 /* Configure hardware device address pins */
 static inline void device_hw_address_init(void)
 {
-	// DDRD  &= ~(_BV(PD7) | _BV(PD5));
-	// PORTD |=   _BV(PD7) | _BV(PD5);
+	// DDRD  and_eq compl (_BV(PD7) bitor _BV(PD5));
+	// PORTD or_eq   _BV(PD7) bitor _BV(PD5);
 }
 
 
@@ -1271,18 +1273,18 @@ static inline void device_hw_address_init(void)
 // Initialize ports for all LEDs
 static inline void leds_init(void)
 {
-	/* Note: Depending on the chip and register these lines can compile */
-	/*       to one instruction each on AVR. For two bits this is one   */
-	/*       instruction shorter than "DDRC |= _BV(PC0) | _BV(PC1);"    */
-	DDRB |= _BV(PB7);
-	// TODO: Implement a second led (RED one!).
+	// Note: Depending on the chip and register these lines can compile
+	//       to one instruction each on AVR. For two bits this is one
+	//       instruction shorter than "DDRB |= _BV(PB6) | _BV(PB7);"
+	DDRB or_eq _BV(PB7);
+	// OPTIONAL: Implement a second led (RED one!).
 	//DDRH |= _BV(PH3);
 }
 
 // --- "BUSY" led, recommended color: green (usage similiar to 1541 LED) ---
 static inline __attribute__((always_inline)) void set_busy_led(uint8_t state)
 {
-	// TODO: Attach and implement a green led for BUSY.
+	// OPTIONAL: Attach and implement a green led for BUSY.
 	VAR_UNUSED(state);
 //	if (state)
 //		PORTH and_eq ~_BV(PH3);
@@ -1294,7 +1296,7 @@ static inline __attribute__((always_inline)) void set_busy_led(uint8_t state)
 static inline __attribute__((always_inline)) void set_dirty_led(uint8_t state)
 {
 	if(state)
-		PORTB and_eq ~_BV(PB7);
+		PORTB and_eq compl _BV(PB7);
 	else
 		PORTB or_eq _BV(PB7);
 }
@@ -1308,23 +1310,23 @@ static inline void toggle_dirty_led(void)
 
 
 /*** IEC signals ***/
-#  define IEC_INPUT PIND
-#  define IEC_DDR   DDRD
-#  define IEC_PORT  PORTD
+#define IEC_INPUT PIND
+#define IEC_DDR   DDRD
+#define IEC_PORT  PORTD
 
-/* Pins assigned for the IEC lines */
-#  define IEC_PIN_ATN   PD3
-#  define IEC_PIN_DATA  PD2
-#  define IEC_PIN_CLOCK PD1
-#  define IEC_PIN_SRQ   PD0
+// Pins assigned for the IEC lines
+#define IEC_PIN_ATN   PD3
+#define IEC_PIN_DATA  PD2
+#define IEC_PIN_CLOCK PD1
+#define IEC_PIN_SRQ   PD0
 
-/* Use separate input/output lines?                                    */
-/* The code assumes that the input is NOT inverted, but the output is. */
-//#  define IEC_SEPARATE_OUT
-//#  define IEC_OPIN_ATN   PA4
-//#  define IEC_OPIN_DATA  PA5
-//#  define IEC_OPIN_CLOCK PA6
-//#  define IEC_OPIN_SRQ   PA7
+// Use separate input/output lines?
+// The code assumes that the input is NOT inverted, but the output is.
+//#define IEC_SEPARATE_OUT
+//#define IEC_OPIN_ATN   PA4
+//#define IEC_OPIN_DATA  PA5
+//#define IEC_OPIN_CLOCK PA6
+//#define IEC_OPIN_SRQ   PA7
 
 /* You can use different ports for input and output bits. The code tries */
 /* to not stomp on the unused bits. IEC output is on IEC_PORT.           */
@@ -1334,55 +1336,60 @@ static inline void toggle_dirty_led(void)
 //#  define IEC_PORTIN     PORTX
 
 /* ATN interrupt (required) */
-#  define IEC_ATN_INT         INT3
-#  define IEC_ATN_INT_VECT    INT3_vect
+#define IEC_ATN_INT         INT3
+#define IEC_ATN_INT_VECT    INT3_vect
 static inline void iec_interrupts_init(void)
 {
-	EIMSK |= _BV(INT3);
+	EIMSK or_eq _BV(INT3);
 }
-/* CLK interrupt (not required) */
-/* Dreamload requires interrupts for both the ATN and CLK lines. If both are served by */
-/* the same PCINT vector, define that as ATN interrupt above and define IEC_PCMSK.     */
-//#  define IEC_PCMSK             PCMSK0
-/* If the CLK line has its own dedicated interrupt, use the following definitions: */
-#  define IEC_CLK_INT           INT1
-#  define IEC_CLK_INT_VECT      INT1_vect
+
+// CLK interrupt (not required)
+// Dreamload requires interrupts for both the ATN and CLK lines. If both are served by
+// the same PCINT vector, define that as ATN interrupt above and define IEC_PCMSK.
+//#define IEC_PCMSK             PCMSK0
+// If the CLK line has its own dedicated interrupt, use the following definitions:
+#define IEC_CLK_INT           INT1
+#define IEC_CLK_INT_VECT      INT1_vect
 static inline void iec_clock_int_setup(void)
 {
-	EICRA |= _BV(ISC10);
+	EICRA or_eq _BV(ISC10);
 }
 
 
 /*** IEEE signals ***/
-/* not documented yet, look at petSD/XS-1541 for guidance */
+// not documented yet, look at petSD/XS-1541 for guidance
 
 /*** User interface ***/
-/* Button NEXT changes to the next disk image and enables sleep mode (held) */
-#  define BUTTON_NEXT _BV(PG0)
+// Button NEXT changes to the next disk image and enables sleep mode (held)
+// OPTIONAL: Add a push button for next disk image
+#define BUTTON_NEXT _BV(PG0)
 
-/* Button PREV changes to the previous disk image */
-#  define BUTTON_PREV _BV(PG2)
+// Button PREV changes to the previous disk image
+// OPTIONAL: Add a push button for previous disk image.
+#define BUTTON_PREV _BV(PG2)
 
-/* Read the raw button state - a depressed button should read as 0 */
+// Read the raw button state - a depressed button should read as 0
 static inline rawbutton_t buttons_read(void)
 {
-	// TODO: Attach/Implement a button on some GPIO.
+	// OPTIONAL: Attach/Implement buttons on some GPIO.
 	return 0;
-//	return PING & (BUTTON_NEXT | BUTTON_PREV);
+//	return PING bitand (BUTTON_NEXT bitor BUTTON_PREV);
 }
 
-static inline void buttons_init(void) {
-	DDRG  &= (uint8_t)~(BUTTON_NEXT | BUTTON_PREV);
-	PORTG |= BUTTON_NEXT | BUTTON_PREV;
+static inline void buttons_init(void)
+{
+	// OPTIONAL: Attach/Implement buttons on some GPIO.
+//	DDRG  &= (uint8_t)~(BUTTON_NEXT | BUTTON_PREV);
+//	PORTG |= BUTTON_NEXT | BUTTON_PREV;
 }
 
-/* Software I2C lines for the RTC and display */
-#  define SOFTI2C_PORT    PORTC
-#  define SOFTI2C_PIN     PINC
-#  define SOFTI2C_DDR     DDRC
-#  define SOFTI2C_BIT_SCL PC4
-#  define SOFTI2C_BIT_SDA PC5
-#  define SOFTI2C_DELAY   6
+// Software I2C lines for the RTC and display
+#define SOFTI2C_PORT    PORTC
+#define SOFTI2C_PIN     PINC
+#define SOFTI2C_DDR     DDRC
+#define SOFTI2C_BIT_SCL PC4
+#define SOFTI2C_BIT_SDA PC5
+#define SOFTI2C_DELAY   6
 
 
 /*** board-specific initialisation ***/
@@ -1390,12 +1397,14 @@ static inline void buttons_init(void) {
 #define HAVE_BOARD_INIT
 static inline void board_init(void)
 {
-	// clock down to 8MHZ to fit the turbo loader strict cycle timings.
+	// Arduino MEGA important: Clock down to 8MHZ for ease of adaptation to strict cycle timings.
 	CLKPR = _BV(CLKPCE);
 	CLKPR = _BV(CLKPS0);
+
+	// OPTIONAL: Attach/Implement a power led.
 	// turn on power LED
-//  DDRG  |= _BV(PG1);
-//  PORTG |= _BV(PG1);
+//  DDRG  or_eq _BV(PG1);
+//  PORTG or_eq _BV(PG1);
 }
 
 #else
@@ -1492,45 +1501,47 @@ typedef uint8_t iec_bus_t;
 static inline __attribute__((always_inline)) void set_atn(uint8_t state)
 {
 	if (COND_INV(state))
-		IEC_OUTPUT |= IEC_OBIT_ATN;
+		IEC_OUTPUT or_eq IEC_OBIT_ATN;
 	else
-		IEC_OUTPUT &= ~IEC_OBIT_ATN;
+		IEC_OUTPUT and_eq ~IEC_OBIT_ATN;
 }
 
 static inline __attribute__((always_inline)) void set_data(uint8_t state)
 {
 	if (COND_INV(state))
-		IEC_OUTPUT |= IEC_OBIT_DATA;
+		IEC_OUTPUT or_eq IEC_OBIT_DATA;
 	else
-		IEC_OUTPUT &= ~IEC_OBIT_DATA;
+		IEC_OUTPUT and_eq ~IEC_OBIT_DATA;
 }
 
 static inline __attribute__((always_inline)) void set_clock(uint8_t state)
 {
 	if (COND_INV(state))
-		IEC_OUTPUT |= IEC_OBIT_CLOCK;
+		IEC_OUTPUT or_eq IEC_OBIT_CLOCK;
 	else
-		IEC_OUTPUT &= ~IEC_OBIT_CLOCK;
+		IEC_OUTPUT and_eq ~IEC_OBIT_CLOCK;
 }
 
 #ifdef IEC_SEPARATE_OUT
 static inline __attribute__((always_inline)) void set_srq(uint8_t state)
 {
 	if (COND_INV(state))
-		IEC_OUTPUT |= IEC_OBIT_SRQ;
+		IEC_OUTPUT or_eq IEC_OBIT_SRQ;
 	else
-		IEC_OUTPUT &= ~IEC_OBIT_SRQ;
+		IEC_OUTPUT and_eq ~IEC_OBIT_SRQ;
 }
 #else
 /* this version of the function turns on the pullups when state is 1 */
 /* note: same pin for in/out implies inverted output via DDR */
-static inline __attribute__((always_inline)) void set_srq(uint8_t state) {
-	if (state) {
-		IEC_DDR  &= ~IEC_OBIT_SRQ;
-		IEC_PORT |=  IEC_OBIT_SRQ;
-	} else {
-		IEC_PORT &= ~IEC_OBIT_SRQ;
-		IEC_DDR  |=  IEC_OBIT_SRQ;
+static inline __attribute__((always_inline)) void set_srq(uint8_t state)
+{
+	if(state) {
+		IEC_DDR  and_eq compl IEC_OBIT_SRQ;
+		IEC_PORT or_eq  IEC_OBIT_SRQ;
+	}
+	else {
+		IEC_PORT and_eq compl IEC_OBIT_SRQ;
+		IEC_DDR  or_eq  IEC_OBIT_SRQ;
 	}
 }
 #endif
@@ -1541,7 +1552,8 @@ static inline __attribute__((always_inline)) void set_srq(uint8_t state) {
 #define toggle_srq() IEC_INPUT |= IEC_OBIT_SRQ
 
 /* IEC lines initialisation */
-static inline void iec_interface_init(void) {
+static inline void iec_interface_init(void)
+{
 #ifdef IEC_SEPARATE_OUT
 	/* Set up the input port - pullups on all lines */
 	IEC_DDRIN  &= (uint8_t)~(IEC_BIT_ATN  | IEC_BIT_CLOCK  | IEC_BIT_DATA  | IEC_BIT_SRQ);
@@ -1550,12 +1562,12 @@ static inline void iec_interface_init(void) {
 	IEC_DDROUT |=            IEC_OBIT_ATN | IEC_OBIT_CLOCK | IEC_OBIT_DATA | IEC_OBIT_SRQ;
 	IEC_PORT   &= (uint8_t)~(IEC_OBIT_ATN | IEC_OBIT_CLOCK | IEC_OBIT_DATA | IEC_OBIT_SRQ);
 #else
-	/* Pullups would be nice, but AVR can't switch from */
-	/* low output to hi-z input directly                */
-	IEC_DDR  &= (uint8_t)~(IEC_BIT_ATN | IEC_BIT_CLOCK | IEC_BIT_DATA | IEC_BIT_SRQ);
-	IEC_PORT &= (uint8_t)~(IEC_BIT_ATN | IEC_BIT_CLOCK | IEC_BIT_DATA);
-	/* SRQ is special-cased because it may be unconnected */
-	IEC_PORT |= IEC_BIT_SRQ;
+	// Pullups would be nice, but AVR can't switch from
+	// low output to hi-z input directly
+	IEC_DDR  and_eq (uint8_t)compl(IEC_BIT_ATN bitor IEC_BIT_CLOCK bitor IEC_BIT_DATA bitor IEC_BIT_SRQ);
+	IEC_PORT and_eq (uint8_t)compl(IEC_BIT_ATN bitor IEC_BIT_CLOCK bitor IEC_BIT_DATA);
+	// SRQ is special-cased because it may be unconnected
+	IEC_PORT or_eq IEC_BIT_SRQ;
 #endif
 
 #ifdef HAVE_PARALLEL
@@ -1586,7 +1598,8 @@ static inline void iec_interface_init(void) {
 /* for static inline functions - use a conditionally compiled */
 /* wrapper instead                                            */
 #  ifndef CONFIG_HAVE_IEEE
-static inline void bus_interface_init(void) {
+static inline void bus_interface_init(void)
+{
 	iec_interface_init();
 }
 #  endif
