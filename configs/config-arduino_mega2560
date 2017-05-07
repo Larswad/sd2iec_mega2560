@@ -44,7 +44,9 @@ CONFIG_UART_BUF_SHIFT=7
 #CONFIG_DEADLOCK_ME_HARDER=y
 CONFIG_COMMAND_CHANNEL_DUMP=y
 
-# In case someone added a crystal to his board
+# If the on-chip crystal may deviate from chip to chip, the turbos must be adapted cycle wise in
+# the fastloader-ii.S implementation. However, this must be TESTED thorougly on several mega's.
+# An alternative is to tune the internal oscillator using the OSCCAL value.
 CONFIG_LOADER_TURBODISK=y
 CONFIG_LOADER_FC3=y
 CONFIG_LOADER_DREAMLOAD=n
@@ -56,6 +58,10 @@ CONFIG_LOADER_WHEELS=y
 CONFIG_LOADER_NIPPON=y
 CONFIG_LOADER_AR6=y
 CONFIG_LOADER_ELOAD1=y
+
+# Define this to adjust to turbo to the arduino mega. May be dependant on crystal individuality.
+CONFIG_MEGA_CYCLE_ADJUST=y
+
 CONFIG_HARDWARE_VARIANT=10
 CONFIG_HARDWARE_NAME=arduino_mega2560
 CONFIG_SD_AUTO_RETRIES=10
