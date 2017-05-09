@@ -1,25 +1,25 @@
 /* sd2iec - SD/MMC to Commodore serial bus interface/controller
-   Copyright (C) 2007-2017  Ingo Korb <ingo@akana.de>
+	 Copyright (C) 2007-2017  Ingo Korb <ingo@akana.de>
 
-   Inspired by MMC2IEC by Lars Pontoppidan et al.
+	 Inspired by MMC2IEC by Lars Pontoppidan et al.
 
-   FAT filesystem access based on code from ChaN and Jim Brain, see ff.c|h.
+	 FAT filesystem access based on code from ChaN and Jim Brain, see ff.c|h.
 
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; version 2 of the License only.
+	 This program is free software; you can redistribute it and/or modify
+	 it under the terms of the GNU General Public License as published by
+	 the Free Software Foundation; version 2 of the License only.
 
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
+	 This program is distributed in the hope that it will be useful,
+	 but WITHOUT ANY WARRANTY; without even the implied warranty of
+	 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	 GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+	 You should have received a copy of the GNU General Public License
+	 along with this program; if not, write to the Free Software
+	 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 
-   dirent.h: Various data structures for directory browsing
+	 dirent.h: Various data structures for directory browsing
 
 */
 
@@ -27,6 +27,7 @@
 #define DIRENT_H
 
 #include "eeprom-fs.h"
+#include "serial-fs.h"
 #include "ff.h"
 
 #define CBM_NAME_LENGTH 16
@@ -71,12 +72,12 @@ struct buffer_s;
  * using memcmp.
  */
 typedef struct date {
-  uint8_t  year;
-  uint8_t  month;
-  uint8_t  day;
-  uint8_t  hour;
-  uint8_t  minute;
-  uint8_t  second;
+	uint8_t  year;
+	uint8_t  month;
+	uint8_t  day;
+	uint8_t  hour;
+	uint8_t  minute;
+	uint8_t  second;
 }  __attribute__((packed)) date_t;
 
 /**
@@ -85,11 +86,11 @@ typedef struct date {
  * @dxx: track/sector of the first directory sector for Dxx
  */
 typedef struct {
-  uint32_t fat;
-  struct {
-    uint8_t track;
-    uint8_t sector;
-  } dxx;
+	uint32_t fat;
+	struct {
+		uint8_t track;
+		uint8_t sector;
+	} dxx;
 } dir_t;
 
 /**
@@ -103,8 +104,8 @@ typedef struct {
  * until multi-type references on a single partition are implemented.
  */
 typedef struct {
-  uint8_t  part;
-  dir_t    dir;
+	uint8_t  part;
+	dir_t    dir;
 } path_t;
 
 /**
@@ -117,20 +118,20 @@ typedef struct {
  * sector and entry (8 entries per sector).
  */
 struct d64dh {
-  uint8_t track;
-  uint8_t sector;
-  uint8_t entry;
+	uint8_t track;
+	uint8_t sector;
+	uint8_t entry;
 };
 
 /* Ops type selector for cbmdirent_t */
 typedef enum {
-  OPSTYPE_UNDEFINED = 0,
-  OPSTYPE_FAT,
-  OPSTYPE_FAT_X00,  /* X00 files can never be disk images */
-                    /* and should match case-sensitive    */
-  OPSTYPE_M2I,
-  OPSTYPE_DXX,
-  OPSTYPE_EEFS
+	OPSTYPE_UNDEFINED = 0,
+	OPSTYPE_FAT,
+	OPSTYPE_FAT_X00,  /* X00 files can never be disk images */
+										/* and should match case-sensitive    */
+	OPSTYPE_M2I,
+	OPSTYPE_DXX,
+	OPSTYPE_EEFS
 } opstype_t;
 
 /**
@@ -161,24 +162,24 @@ typedef enum {
  * this is currently the value used by FatFs for new files.
  */
 typedef struct {
-  uint8_t   name[CBM_NAME_LENGTH+1];
-  uint8_t   typeflags;
-  uint16_t  blocksize;
-  uint8_t   remainder;
-  date_t    date;
-  opstype_t opstype;
-  union {
-    struct {
-      uint32_t cluster;
-      uint8_t  realname[8+3+1+1];
-    } fat;
-    struct {
-      struct d64dh dh;
-    } dxx;
-    struct {
-      uint16_t offset;
-    } m2i;
-  } pvt;
+	uint8_t   name[CBM_NAME_LENGTH+1];
+	uint8_t   typeflags;
+	uint16_t  blocksize;
+	uint8_t   remainder;
+	date_t    date;
+	opstype_t opstype;
+	union {
+		struct {
+			uint32_t cluster;
+			uint8_t  realname[8+3+1+1];
+		} fat;
+		struct {
+			struct d64dh dh;
+		} dxx;
+		struct {
+			uint16_t offset;
+		} m2i;
+	} pvt;
 } cbmdirent_t;
 
 /**
@@ -193,11 +194,11 @@ typedef struct {
  * in a D64 image and update its directory entry upon close.
  */
 typedef struct d64fh {
-  struct d64dh dh;
-  uint8_t part;
-  uint8_t track;
-  uint8_t sector;
-  uint16_t blocks;
+	struct d64dh dh;
+	uint8_t part;
+	uint8_t track;
+	uint8_t sector;
+	uint16_t blocks;
 } d64fh_t;
 
 /**
@@ -212,20 +213,21 @@ typedef struct d64fh {
  * readdir.
  */
 typedef struct dh_s {
-  uint8_t part;
-  union {
-    DIR          fat;
-    uint16_t     m2i;
-    struct d64dh d64;
-    eefs_dir_t   eefs;
-  } dir;
+	uint8_t part;
+	union {
+		DIR          fat;
+		uint16_t     m2i;
+		struct d64dh d64;
+		eefs_dir_t   eefs;
+		sfs_dir_t		 sfs;
+	} dir;
 } dh_t;
 
 /* This enum must match the struct param_s below! */
 typedef enum { DIR_TRACK = 0, DIR_START_SECTOR,
-               LAST_TRACK, LABEL_OFFSET, ID_OFFSET,
-               FILE_INTERLEAVE, DIR_INTERLEAVE
-               /* , FORMAT_FUNCTION */ } param_t;
+							 LAST_TRACK, LABEL_OFFSET, ID_OFFSET,
+							 FILE_INTERLEAVE, DIR_INTERLEAVE
+							 /* , FORMAT_FUNCTION */ } param_t;
 
 /**
  * struct param_s - Dxx image file parameters
@@ -242,15 +244,15 @@ typedef enum { DIR_TRACK = 0, DIR_START_SECTOR,
  * disk images and which could be abstracted out easily.
  */
 struct param_s {
-  uint8_t dir_track;
-  uint8_t dir_start_sector;
-  uint8_t last_track;
-  uint8_t label_offset;
-  uint8_t id_offset;
-  uint8_t file_interleave;
-  uint8_t dir_interleave;
-  // Insert new fields here, otherwise get_param will fail!
-  void    (*format_function)(uint8_t part, struct buffer_s *buf, uint8_t *name, uint8_t *idbuf);
+	uint8_t dir_track;
+	uint8_t dir_start_sector;
+	uint8_t last_track;
+	uint8_t label_offset;
+	uint8_t id_offset;
+	uint8_t file_interleave;
+	uint8_t dir_interleave;
+	// Insert new fields here, otherwise get_param will fail!
+	void    (*format_function)(uint8_t part, struct buffer_s *buf, uint8_t *name, uint8_t *idbuf);
 };
 
 /**
@@ -265,12 +267,12 @@ struct param_s {
  * This data structure holds per-partition data.
  */
 typedef struct partition_s {
-  FATFS                  fatfs;
-  dir_t                  current_dir;
-  const struct fileops_s *fop;
-  FIL                    imagehandle;
-  uint8_t                imagetype;
-  struct param_s         d64data;
+	FATFS                  fatfs;
+	dir_t                  current_dir;
+	const struct fileops_s *fop;
+	FIL                    imagehandle;
+	uint8_t                imagetype;
+	struct param_s         d64data;
 } partition_t;
 
 #endif

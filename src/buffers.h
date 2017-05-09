@@ -1,25 +1,25 @@
 /* sd2iec - SD/MMC to Commodore serial bus interface/controller
-   Copyright (C) 2007-2017  Ingo Korb <ingo@akana.de>
+	 Copyright (C) 2007-2017  Ingo Korb <ingo@akana.de>
 
-   Inspired by MMC2IEC by Lars Pontoppidan et al.
+	 Inspired by MMC2IEC by Lars Pontoppidan et al.
 
-   FAT filesystem access based on code from ChaN and Jim Brain, see ff.c|h.
+	 FAT filesystem access based on code from ChaN and Jim Brain, see ff.c|h.
 
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; version 2 of the License only.
+	 This program is free software; you can redistribute it and/or modify
+	 it under the terms of the GNU General Public License as published by
+	 the Free Software Foundation; version 2 of the License only.
 
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
+	 This program is distributed in the hope that it will be useful,
+	 but WITHOUT ANY WARRANTY; without even the implied warranty of
+	 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	 GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+	 You should have received a copy of the GNU General Public License
+	 along with this program; if not, write to the Free Software
+	 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 
-   buffers.h: Data structures for the internal buffers
+	 buffers.h: Data structures for the internal buffers
 */
 
 #ifndef BUFFERS_H
@@ -77,60 +77,61 @@ typedef enum { DIR_FMT_CBM, DIR_FMT_CMD_SHORT, DIR_FMT_CMD_LONG } dirformat_t;
  * everywhere.
  */
 typedef struct buffer_s {
-  /* The error channel uses the same data structure for convenience reasons, */
-  /* so data must be a pointer. It also allows swapping the buffers around   */
-  /* in case I ever add external ram (not XRAM) to the design (which will    */
-  /* require locking =( ).                                                   */
-  uint8_t *data;
-  uint8_t lastused;
-  uint8_t position;
-  uint8_t secondary;
-  uint8_t recordlen;
-  uint32_t fptr;  // FIXME: Missing from doc comment
-  int     allocated:1;
-  int     mustflush:1;
-  int     read:1;
-  int     write:1;
-  int     dirty:1;
-  int     sendeoi:1;
-  int     sticky:1;
-  uint8_t (*seek) (struct buffer_s *buffer, uint32_t position, uint8_t index);
-  uint8_t (*refill)(struct buffer_s *buffer);
-  uint8_t (*cleanup)(struct buffer_s *buffer);
+	/* The error channel uses the same data structure for convenience reasons, */
+	/* so data must be a pointer. It also allows swapping the buffers around   */
+	/* in case I ever add external ram (not XRAM) to the design (which will    */
+	/* require locking =( ).                                                   */
+	uint8_t *data;
+	uint8_t lastused;
+	uint8_t position;
+	uint8_t secondary;
+	uint8_t recordlen;
+	uint32_t fptr;  // FIXME: Missing from doc comment
+	int     allocated:1;
+	int     mustflush:1;
+	int     read:1;
+	int     write:1;
+	int     dirty:1;
+	int     sendeoi:1;
+	int     sticky:1;
+	uint8_t (*seek) (struct buffer_s *buffer, uint32_t position, uint8_t index);
+	uint8_t (*refill)(struct buffer_s *buffer);
+	uint8_t (*cleanup)(struct buffer_s *buffer);
 
-  /* private: */
-  union {
-    struct {
-      dh_t dh;             /* Directory handle */
-      uint8_t filetype;    /* File type */
-      dirformat_t format;  /* Dir format */
-      uint8_t *matchstr;   /* Pointer to filename pattern */
-      date_t *match_start; /* Start matching date */
-      date_t *match_end;   /* End matching date */
-      uint8_t counter;     /* used for counting raw entries */
-    } dir;
-    struct {
-      FIL fh;              /* File access via FAT */
-      uint8_t headersize;  /* offset to start of file data */
-    } fat;
-    d64fh_t d64;           /* File access on D64  */
-    eefs_fh_t eefh;        /* File handle for eepromfs */
-    struct {
-      uint8_t part;        /* partition number for $=P */
-      uint8_t *matchstr;   /* Pointer to filename pattern */
-    } pdir;
-    struct {
-      uint8_t part;        /* partition number where the BAM came from */
-      uint8_t track;       /* BAM-track (if more than one) */
-      uint8_t sector;      /* BAM-sector (if more than one) */
-    } bam;
-    struct {
-      uint8_t part;           /* current partition at buffer creation time */
-      uint8_t size;           /* Number of buffers in chain  */
-      struct buffer_s *first; /* Pointer to the first buffer */
-      struct buffer_s *next;  /* Pointer to the next buffer  */
-    } buffer;
-  } pvt;
+	/* private: */
+	union {
+		struct {
+			dh_t dh;             /* Directory handle */
+			uint8_t filetype;    /* File type */
+			dirformat_t format;  /* Dir format */
+			uint8_t *matchstr;   /* Pointer to filename pattern */
+			date_t *match_start; /* Start matching date */
+			date_t *match_end;   /* End matching date */
+			uint8_t counter;     /* used for counting raw entries */
+		} dir;
+		struct {
+			FIL fh;              /* File access via FAT */
+			uint8_t headersize;  /* offset to start of file data */
+		} fat;
+		d64fh_t d64;           /* File access on D64  */
+		eefs_fh_t eefh;        /* File handle for eepromfs */
+		sfs_fh_t sfh;					 /* File handle for serialfs */
+		struct {
+			uint8_t part;        /* partition number for $=P */
+			uint8_t *matchstr;   /* Pointer to filename pattern */
+		} pdir;
+		struct {
+			uint8_t part;        /* partition number where the BAM came from */
+			uint8_t track;       /* BAM-track (if more than one) */
+			uint8_t sector;      /* BAM-sector (if more than one) */
+		} bam;
+		struct {
+			uint8_t part;           /* current partition at buffer creation time */
+			uint8_t size;           /* Number of buffers in chain  */
+			struct buffer_s *first; /* Pointer to the first buffer */
+			struct buffer_s *next;  /* Pointer to the next buffer  */
+		} buffer;
+	} pvt;
 } buffer_t;
 
 extern dh_t matchdh;         /// Directory handle used in file matching
@@ -165,12 +166,12 @@ uint8_t free_multiple_buffers(uint8_t flags);
 
 /* Mark a buffer as sticky */
 static void inline stick_buffer(buffer_t *buf) {
-  buf->sticky = 1;
+	buf->sticky = 1;
 }
 
 /* remove sticky mark */
 static void inline unstick_buffer(buffer_t *buf) {
-  buf->sticky = 0;
+	buf->sticky = 0;
 }
 
 /* Finds the buffer corresponding to a secondary address */
@@ -189,8 +190,8 @@ extern uint8_t active_buffers;
 /* Mark a buffer as write-buffer and sticky it */
 // Note: inline function is smaller than external on AVR with gcc 4.8.2
 static inline void mark_write_buffer(buffer_t *buf) {
-  buf->write = 1;
-  stick_buffer(buf);
+	buf->write = 1;
+	stick_buffer(buf);
 }
 
 /* Mark a buffer as dirty */

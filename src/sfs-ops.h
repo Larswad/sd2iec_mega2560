@@ -1,3 +1,6 @@
+#ifndef SFSOPS_H
+#define SFSOPS_H
+
 /* sd2iec - SD/MMC to Commodore serial bus interface/controller
 	 Copyright (C) 2007-2017  Ingo Korb <ingo@akana.de>
 
@@ -19,20 +22,17 @@
 	 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 
-	 eefs-ops.h: eepromfs operations
+	 sfs-ops.h: sfs operations
 
 */
 
-#ifndef EEFS_OPS_H
-#define EEFS_OPS_H
-
 #include "wrapops.h"
 
-// number of the partition that eefs took, 255 if none
-extern uint8_t eefs_partition;
+// number of the partition that sfs took, 255 if none
+extern uint8_t sfs_partition;
 
-extern const fileops_t eefs_ops;
+extern const fileops_t sfs_ops;
 
-void eefsops_init(void);
+void sfsops_init(void);
 
-#endif
+#endif // SFSOPS_H

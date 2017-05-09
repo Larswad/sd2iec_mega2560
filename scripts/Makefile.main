@@ -55,78 +55,82 @@ SRC += eeprom-conf.c parser.c utils.c led.c diskio.c
 SRC += timer.c $(CONFIG_ARCH)/arch-timer.c $(CONFIG_ARCH)/spi.c
 SRC += $(CONFIG_ARCH)/system.c
 ifeq ($(CONFIG_HAVE_IEC),y)
-  SRC += fl-ar6.c fl-dolphin.c fl-dreamload.c fl-eload.c
-  SRC += fl-epyxcart.c fl-fc3exos.c fl-geos.c fl-gijoe.c
-  SRC += fl-mmzak.c fl-nippon.c fl-turbodisk.c fl-ulm3.c
-  SRC += fl-n0sdos.c
+	SRC += fl-ar6.c fl-dolphin.c fl-dreamload.c fl-eload.c
+	SRC += fl-epyxcart.c fl-fc3exos.c fl-geos.c fl-gijoe.c
+	SRC += fl-mmzak.c fl-nippon.c fl-turbodisk.c fl-ulm3.c
+	SRC += fl-n0sdos.c
 endif
 
 ifneq ($(CONFIG_NO_SD),y)
-  SRC += sdcard.c
+	SRC += sdcard.c
 endif
 
 ifeq ($(CONFIG_M2I),y)
-  SRC += m2iops.c
+	SRC += m2iops.c
 endif
 
 ifneq ($(CONFIG_HAVE_IEC),y)
-  ifneq ($(CONFIG_HAVE_IEEE),y)
-    .PHONY: nobus
-    nobus:
+	ifneq ($(CONFIG_HAVE_IEEE),y)
+		.PHONY: nobus
+		nobus:
 	@echo 'Neither CONFIG_HAVE_IEC nor CONFIG_HAVE_IEEE are set.'
 	@echo "Please edit $(CONFIG)."
-  endif
+	endif
 endif
 
 ifeq ($(CONFIG_HAVE_IEC),y)
-  SRC += iec.c fastloader.c
+	SRC += iec.c fastloader.c
 endif
 
 ifeq ($(CONFIG_HAVE_IEEE),y)
-  SRC += ieee.c
+	SRC += ieee.c
 endif
 
 ifeq ($(CONFIG_UART_DEBUG),y)
-  SRC += $(CONFIG_ARCH)/uart.c
+	SRC += $(CONFIG_ARCH)/uart.c
 endif
 
 ifeq ($(CONFIG_REMOTE_DISPLAY),y)
-  SRC += display.c
-  NEED_I2C := y
+	SRC += display.c
+	NEED_I2C := y
 endif
 
 ifeq ($(CONFIG_P00CACHE),y)
-  SRC += p00cache.c
+	SRC += p00cache.c
 endif
 
 ifeq ($(CONFIG_HAVE_EEPROMFS),y)
-  SRC += eeprom-fs.c eefs-ops.c
+	SRC += eeprom-fs.c eefs-ops.c
+endif
+
+ifeq ($(CONFIG_HAVE_SERIALFS),y)
+	SRC += eeprom-fs.c eefs-ops.c
 endif
 
 # Additional hardware support enabled in the config file
 ifdef CONFIG_ADD_SD
-  SRC += sdcard.c
+	SRC += sdcard.c
 endif
 
 ifdef CONFIG_ADD_ATA
-  SRC += $(CONFIG_ARCH)/ata.c
+	SRC += $(CONFIG_ARCH)/ata.c
 endif
 
 # Various RTC implementations
 ifeq ($(CONFIG_RTC_DSRTC),y)
-  SRC += rtc.c ds1307-3231.c
-  NEED_I2C := y
+	SRC += rtc.c ds1307-3231.c
+	NEED_I2C := y
 endif
 
 # Note: 3 is the LPC17xx internal RTC
 
 ifeq ($(CONFIG_RTC_PCF8583),y)
-  SRC += rtc.c pcf8583.c
-  NEED_I2C := y
+	SRC += rtc.c pcf8583.c
+	NEED_I2C := y
 endif
 
 ifeq ($(CONFIG_RTC_SOFTWARE),y)
-  SRC += rtc.c avr/softrtc.c
+	SRC += rtc.c avr/softrtc.c
 endif
 
 # Optimization level, can be [0, 1, 2, 3, s].
@@ -218,7 +222,7 @@ CFLAGS += $(CSTANDARD)
 CFLAGS += -ffunction-sections -fdata-sections
 
 ifdef NEED_I2C
-  CFLAGS += -DHAVE_I2C
+	CFLAGS += -DHAVE_I2C
 endif
 
 #---------------- Assembler Options ----------------
@@ -238,7 +242,7 @@ ASFLAGS = -Wa,-gstabs -I$(OBJDIR) -Isrc -Isrc/$(CONFIG_ARCH)
 LDFLAGS = -Wl,-Map=$(TARGET).map,--cref
 LDFLAGS += -Wl,--gc-sections
 ifeq ($(CONFIG_LINKER_RELAX),y)
-  LDFLAGS += -Wl,-O9,--relax
+	LDFLAGS += -Wl,-O9,--relax
 endif
 
 
