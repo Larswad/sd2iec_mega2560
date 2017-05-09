@@ -166,6 +166,26 @@ clk_irq_end:
 				;;  Utility routines
 				;; ===================================================================
 
+;; adaptations to cycle timing dependant on program counter width (rcall's and ret's)
+;; BC = BUS COMPENSATION (Extra cycle cost in delays to subtract after rcalls/rets)
+#ifdef __AVR_3_BYTE_PC__
+#define delay1us delay1us_nocall
+#define BC 2
+				.macro delay1us_nocall
+				push r18	; 2
+				pop r18		; 2
+				push r18	; 2
+				pop r18		; 2
+				.endm
+#else
+#define	delay1us rcall delay1us_fn
+#define BC 0
+				;; Including the rcall this will delay for 8 cycles
+delay1us_fn:
+				nop                     ; 1
+				ret                     ; 4
+#endif
+
 				;;  Used by the macro below, don't call directly
 cycleloop2:
 				nop                     ; 1
@@ -179,21 +199,15 @@ cycleloop0:
 				;; This macro waits for the specified number of cycles
 				;;  Uses r18
 				.macro delay_cycles num
-				ldi     r18, 1 + (\num - 10) / 3 ; 1
-				.if (\num - 10) % 3 == 0
+				ldi     r18, 1 + (\num - 10 - BC) / 3 ; 1
+				.if (\num - 10 - BC) % 3 == 0
 				rcall   cycleloop0      ; 3
-				.elseif (\num - 10) % 3 == 1
+				.elseif (\num - 10 - BC) % 3 == 1
 				rcall   cycleloop1      ; 3
 				.else
 				rcall   cycleloop2      ; 3
 				.endif
 				.endm
-
-
-				;; Including the rcall this will delay for 8 cycles
-delay1us:
-				nop                     ; 1
-				ret                     ; 4
 
 				;; wait for ATN high
 wait_atn_high:
@@ -367,7 +381,7 @@ jiffy_send:
 				cbi     _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_CLOCK
 
 				;; Wait 1us to allow the bus to settle (J1541 needs 4us here)
-				rcall   delay1us
+				delay1us
 
 				;; Set up a few registers
 				mov     r0, r24         ; move data byte to r0
@@ -415,7 +429,7 @@ jiffy_send:
 				out     _SFR_IO_ADDR(IEC_OUTPUT), r22 ; 1 - output EOI marker [FFDB]
 
 				;; Wait 1us to allow the bus to settle (J1541 needs 4us here)
-				rcall   delay1us
+				delay1us
 
 				;; Wait until data is low, check ATN [FFDE]
 				;; This loop won't wait when EOI is signalled.
@@ -459,7 +473,7 @@ turbodisk_byte:
 0:      sbis    _SFR_IO_ADDR(IEC_INPUT), IEC_PIN_DATA ; 2
 				rjmp    0b
 
-				rcall   delay1us        ; Move the timing window slightly
+				delay1us        ; Move the timing window slightly
 
 				ldi     r20, 4          ; 1 - Bitpair counter
 
@@ -478,7 +492,7 @@ tdbitloop:
 
 				out     _SFR_IO_ADDR(IEC_OUTPUT), r19      ; 1 - output the bit pair
 
-				rcall   delay1us        ; 8 - additional us for loops 2-4
+				delay1us        ; 8 - additional us for loops 2-4
 
 				dec     r20             ; 1 - Decrement bitpair counter
 				brne    tdbitloop       ; 2/1 - loop until done
@@ -665,26 +679,17 @@ fc3_byteloop:
 fc3_bitloop:
 				; send r0[0,1] to CLOCK and DATA, shift r0 right two times
 				; changes r19
-				rcall   send_bits_to_clk_data ; 10 + 6
+				rcall   send_bits_to_clk_data ; 10 + 6 (3 byte wide bus: 10 + 8)
 
-				; wait 12 us between bitpair
-#ifdef CONFIG_MEGA_CYCLE_ADJUST
-				delay_cycles 12*8-23
-#else
-				delay_cycles 12*8-19
-#endif
+					; wait 12 us between bitpair
+				delay_cycles 12 * 8 - 19 - BC
 				dec     r20             ; 1 - decrement bitpair counter
 				brne    fc3_bitloop     ; 2/1 - loop until done
 fc3_next_byte:
 				; wait 2 us more between two bytes (16 cycles = -1 + 17)
-				rcall   delay1us        ; 8
+				delay1us        ; 8
 				rjmp    0f              ; 2
-0:
-#ifdef CONFIG_MEGA_CYCLE_ADJUST
-				rjmp		1f							; 2
-1:			nop											; 1
-#endif
-				dec     r21             ; 1 - decrement byte counter
+0:			dec     r21             ; 1 - decrement byte counter
 				brne    fc3_byteloop    ; 2/1 - loop until done
 
 				; release CLOCK and DATA
@@ -724,7 +729,7 @@ fc3_get_byte:
 				lsl     r24                     ; 1     r24 = ....7.5.
 
 				; 13 us later...
-				delay_cycles 13 * 8 - 13
+				delay_cycles 13 * 8 - 13 - BC
 
 				; get bits 4,6 @ 0,2 - changes r19
 				rcall   get_bits_from_clk_data  ; 4 + 8 r24 = ....7654
@@ -732,14 +737,14 @@ fc3_get_byte:
 				lsr     r24                     ; 1     r24 = .7654...
 
 				; 12 us later...
-				delay_cycles 12 * 8 - 14
+				delay_cycles 12 * 8 - 14 - BC
 
 				; get bits 1,3 @ 0,2 - changes r19
 				rcall   get_bits_from_clk_data  ; 4 + 8 r24 = .76543.1
 				lsl     r24                     ; 1     r24 = 76543.1.
 
 				; 10 us later...
-				delay_cycles 10 * 8 - 13
+				delay_cycles 10 * 8 - 13 - BC
 
 				; get bits 0,2 @ 0,2 - changes r19
 				rcall   get_bits_from_clk_data  ; 4 + 8 r24 = 76543210
@@ -776,22 +781,22 @@ fc3_oldfreeze_pal_send:
 				rcall   send_bits_to_clk_data ; 10+6
 
 				;; send bits 2+3
-				delay_cycles (22 - 14) * 8 - 16
+				delay_cycles (22 - 14) * 8 - 16 - BC
 				rcall   send_bits_to_clk_data ; 10+6
 
 				;; send bits 4+5
-				delay_cycles (30 - 22) * 8 - 16
+				delay_cycles (30 - 22) * 8 - 16 - BC
 				rcall   send_bits_to_clk_data ; 10+6
 
 				;; send bits 6+7
-				delay_cycles (38 - 30) * 8 - 16
+				delay_cycles (38 - 30) * 8 - 16 - BC
 				rcall   send_bits_to_clk_data ; 10+6
 
 				;; hold time before re-enabling busy
-				delay_cycles (46 - 38) * 8 - 6 - 1
+				delay_cycles (46 - 38) * 8 - 6 - 1 - BC
 				cbi     _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_CLOCK ; 1
 				sbi     _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_DATA  ; 1
-				rcall   delay1us
+				delay1us
 
 				;; return inverted ATN state in r24
 				in      r24, _SFR_IO_ADDR(IEC_INPUT)
@@ -824,22 +829,22 @@ fc3_oldfreeze_ntsc_send:
 				rcall   send_bits_to_clk_data ; 10+6
 
 				;; send bits 2+3
-				delay_cycles (24 - 14) * 8 - 16
+				delay_cycles (24 - 14) * 8 - 16 - BC
 				rcall   send_bits_to_clk_data ; 10+6
 
 				;; send bits 4+5
-				delay_cycles (34 - 24) * 8 - 16
+				delay_cycles (34 - 24) * 8 - 16 - BC
 				rcall   send_bits_to_clk_data ; 10+6
 
 				;; send bits 6+7
-				delay_cycles (44 - 34) * 8 - 16
+				delay_cycles (44 - 34) * 8 - 16 - BC
 				rcall   send_bits_to_clk_data ; 10+6
 
 				;; hold time before re-enabling busy
-				delay_cycles (52 - 44) * 8 - 6 - 1
+				delay_cycles (52 - 44) * 8 - 6 - 1 - BC
 				cbi     _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_CLOCK ; 1
 				sbi     _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_DATA  ; 1
-				rcall   delay1us
+				delay1us
 
 				;; return inverted ATN state in r24
 				in      r24, _SFR_IO_ADDR(IEC_INPUT)
@@ -976,31 +981,31 @@ uload3_get_byte:
 				rjmp    uload3_abort                       ;return if ATN is low
 
 				;; assuming an average of 10 cycles between DATA high and the following instruction
-				delay_cycles 14 * 8 - 10 - 4
+				delay_cycles 14 * 8 - 10 - 4 - BC
 
 				;; read bits 7/5
 				rcall   get_bits_from_clk_data ;4+8 r24 = _____7_5
 				lsl     r24                    ;1   r24 = ____7_5_
 
-				delay_cycles 10 * 8 - 13
+				delay_cycles 10 * 8 - 13 - BC
 
 				;; read bits 6/4
 				rcall   get_bits_from_clk_data ;4+8 r24 = ____7654
 				swap    r24                    ;1   r24 = 7654____
 				lsr     r24                    ;1   r24 = _7654___
 
-				delay_cycles 14 * 8 - 14
+				delay_cycles 14 * 8 - 14 - BC
 
 				;; read bits 3/1
 				rcall   get_bits_from_clk_data ;4+8 r24 = _76543_1
 				lsl     r24                    ;1   r24 = 76543_1_
 
-				delay_cycles 10 * 8 - 13
+				delay_cycles 10 * 8 - 13 - BC
 
 				;; read bits 2/0
 				rcall   get_bits_from_clk_data ;4+8 r24 = 76543210
 
-				delay_cycles 20*8       ; wait a bit so the C64 can return the bus to idle state
+				delay_cycles 20*8 - BC       ; wait a bit so the C64 can return the bus to idle state
 
 				clr     r25             ; clear upper byte of return value
 				com     r24             ; invert data byte
@@ -1040,20 +1045,20 @@ uload3_send_byte:
 				mov     r0, r24         ;1 - move data to output register
 				com     r0              ;1 - invert byte
 				ldi     r24, 4          ;1 - number of loops
-				delay_cycles (14-8) * 8 - 8 + 6 + 3 ; initial delay before first bit pair
+				delay_cycles (14-8) * 8 - 8 + 6 + 3 + BC ; initial delay before first bit pair
 
 uload3_bitloop:
-				delay_cycles 8 * 8 - 16 - 3   ; delay between bit pairs
+				delay_cycles 8 * 8 - 16 - 3 - BC   ; delay between bit pairs
 				rcall   send_bits_to_clk_data ;10+6
 				dec     r24                   ;1 - decrement pair counter
 				brne    uload3_bitloop        ;2 - continue loop
 
-				delay_cycles 10*8 - 9   ; delay before releasing clock/data
+				delay_cycles 10 * 8 - 9 - BC   ; delay before releasing clock/data
 
 				;; release CLOCK+DATA
 				cbi     _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_CLOCK
 				cbi     _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_DATA
-				rcall   delay1us        ; safety
+				delay1us        ; safety
 2:
 				sei
 				ret
@@ -1080,7 +1085,7 @@ epyxcart_send_byte:
 				;; DATA and CLOCK high
 				cbi     _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_DATA
 				cbi     _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_CLOCK
-				rcall   delay1us
+				delay1us
 
 				;; prepare data
 				in      r19, _SFR_IO_ADDR(IEC_OUTPUT)
@@ -1093,23 +1098,23 @@ epyxcart_send_byte:
 				rjmp    1b
 
 				mov     r0, r24             ; 1
-				delay_cycles (10*8 - 9)
+				delay_cycles (10 * 8 - 9)
 				rcall   epyx_bitpair        ; 8+4 - bits 7 and 5
 
 				lsl     r0                  ; 1
-				delay_cycles (10*8 - 13)
+				delay_cycles (10 * 8 - 13 - BC)
 				rcall   epyx_bitpair        ; 8+4 - bits 6 and 4
 
 				swap    r24                 ; 1
 				mov     r0, r24             ; 1
-				delay_cycles (10*8 - 14)
+				delay_cycles (10 * 8 - 14 - BC)
 				rcall   epyx_bitpair        ; 8+4 - bits 3 and 1
 
 				lsl     r0                  ; 1
-				delay_cycles (10*8 - 13)
+				delay_cycles (10 * 8 - 13 - BC)
 				rcall   epyx_bitpair        ; 8+4 - bits 2 and 0
 
-				delay_cycles 20*8  ; final delay so the data stays valid long enough
+				delay_cycles 20 * 8 - BC  ; final delay so the data stays valid long enough
 
 				clr     r24
 				ret
@@ -1136,7 +1141,7 @@ geos_get_byte_common:
 				rjmp    1b
 
 				;; delay
-				delay_cycles 15*8 - 2
+				delay_cycles 15 * 8 - 2
 
 				;; get bits 4 and 5
 				in      r19, _SFR_IO_ADDR(IEC_INPUT) ; 1
@@ -1146,7 +1151,7 @@ geos_get_byte_common:
 				bld     r24, 5-1                   ; 1 - r24 = ...54...
 
 				;; delay
-				delay_cycles 14*8 - 5
+				delay_cycles 14 * 8 - 5
 
 				;; get bits 6 and 7
 				in      r19, _SFR_IO_ADDR(IEC_INPUT) ; 1
@@ -1165,20 +1170,20 @@ geos_get_byte_1mhz:
 				rcall   geos_get_byte_common   ; 3
 
 				;; delay
-				delay_cycles 14*8 - 9 - 4
+				delay_cycles 14 * 8 - 9 - 4 - BC
 
 				;; get bits 3 and 1
 				rcall   get_bits_from_clk_data ; 4+8 - r24 = .76543.1
 				lsl     r24                    ; 1     r24 = 76543.1.
 
 				;; delay
-				delay_cycles 16*8 - 9 - 4
+				delay_cycles 16 * 8 - 9 - 4 - BC
 
 				;; get bits 2 and 0
 				rcall   get_bits_from_clk_data ; 4+8 - r24 = 76543210
 
 				;; post-process received value and return
-				delay_cycles 11*8
+				delay_cycles 11 * 8 - BC
 				com     r24             ; negate all bits
 				clr     r25             ; clear high byte of return value
 				ret
@@ -1192,20 +1197,20 @@ geos_get_byte_2mhz:
 				rcall   geos_get_byte_common   ; 3
 
 				;; delay
-				delay_cycles 19*4 - 9 - 4
+				delay_cycles 19 * 4 - 9 - 4 - BC
 
 				;; get bits 3 and 1
 				rcall   get_bits_from_clk_data ; 4+8 - r24 = .76543.1
 				lsl     r24                    ; 1     r24 = 76543.1.
 
 				;; delay
-				delay_cycles 22*4 - 9 - 4
+				delay_cycles 22 * 4 - 9 - 4 - BC
 
 				;; get bits 2 and 0
 				rcall   get_bits_from_clk_data ; 4+8 - r24 = 76543210
 
 				;;  post process received value and return
-				delay_cycles 11*8
+				delay_cycles 11*8 - BC
 				com     r24             ; negate all bits
 				clr     r25             ; clear high byte of return value
 				ret
@@ -1219,7 +1224,7 @@ geos_send_byte_common:
 				;; CLOCK/DATA high
 				cbi     _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_CLOCK
 				cbi     _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_DATA
-				rcall   delay1us
+				delay1us
 
 				;; wait until CLOCK is low
 1:      sbic    _SFR_IO_ADDR(IEC_INPUT), IEC_PIN_CLOCK
@@ -1246,7 +1251,7 @@ geos_send_byte_1mhz:
 				bld     r19, IEC_OPIN_DATA  ; 1 - store in data bit
 
 				;; delay (1MHz speeder)
-				delay_cycles 18*8 - 14
+				delay_cycles 18*8 - 14 - BC
 				rjmp    geos_send_byte_tail   ; 2
 
 
@@ -1265,7 +1270,7 @@ geos_send_byte_2mhz:
 				bld     r19, IEC_OPIN_DATA  ; 1 - store in data bit
 
 				;; delay (2MHz speeder)
-1:      delay_cycles 9*8 - 12
+1:      delay_cycles 9*8 - 12 - BC
 
 geos_send_byte_tail:
 				;; send to bus
@@ -1306,13 +1311,13 @@ geos_send_byte_tail:
 				bld     r19, IEC_OPIN_DATA  ; 1 - store in data bit
 
 				;; delay
-				delay_cycles 12*8 - 6
+				delay_cycles 12 * 8 - 6
 
 				;; send to bus
 				out     _SFR_IO_ADDR(IEC_OUTPUT), r19 ; 1
 
 				;; final delay
-				delay_cycles 22*8
+				delay_cycles 22 * 8
 
 				ret
 
@@ -1328,31 +1333,31 @@ geos_send_byte_1581_21:
 				mov     r0, r24               ; 1 - move data to target register
 
 				;; delay
-				delay_cycles 7*8 - 18
+				delay_cycles 7 * 8 - 18 - BC
 
 				;; send bits 0+1
 				rcall   send_bits_to_clk_data ; 10+6
 
 				;; delay
-				delay_cycles 7*8 - 16
+				delay_cycles 7 * 8 - 16 - BC
 
-				;; send bits 2+3
+				;; send bits 2 + 3
 				rcall   send_bits_to_clk_data ; 10+6
 
 				;; delay
-				delay_cycles 10*8 - 16
+				delay_cycles 10 * 8 - 16 - BC
 
 				;; send bits 4+5
 				rcall   send_bits_to_clk_data ; 10+6
 
 				;; delay
-				delay_cycles 9*8 - 16
+				delay_cycles 9 * 8 - 16 - BC
 
 				;; send bits 6+7
 				rcall   send_bits_to_clk_data ; 10+6
 
 				;; final delay
-				delay_cycles 12*8
+				delay_cycles 12 * 8 - BC
 
 				ret
 
@@ -1370,11 +1375,11 @@ wheels_send_byte_1mhz:
 				rcall   wheels_nibble       ; 3 - send lower nibble
 				swap    r24                 ; 1 - swap nibbles
 
-				delay_cycles (14-9)*8 + 15 - 14
+				delay_cycles (14 - 9) * 8 + 15 - 14 - BC
 				rcall   wheels_nibble       ; 3 - send upper nibble
 
 				;; final delay
-				delay_cycles 22*8
+				delay_cycles 22 * 8 - BC
 				ret
 
 wheels_nibble:
@@ -1386,7 +1391,7 @@ wheels_nibble:
 				bld     r19, IEC_OPIN_DATA  ; 1 - store in data bit
 
 				;; delay
-				delay_cycles 9*8 - 15
+				delay_cycles 9 * 8 - 15
 
 				;; send to bus
 				out     _SFR_IO_ADDR(IEC_OUTPUT), r19 ; 1 - send to bus
@@ -1428,25 +1433,25 @@ wheels_get_byte_1mhz:
 				rcall   get_bits_from_clk_data ; 4+8 r24 = _____7_5
 				lsl     r24                    ; 1   r24 = ____7_5_
 
-				delay_cycles 10 * 8 - 13
+				delay_cycles 10 * 8 - 13 - BC
 
 				;; read bits 6/4
 				rcall   get_bits_from_clk_data ; 4+8 r24 = ____7654
 				swap    r24                    ; 1   r24 = 7654____
 				lsr     r24                    ; 1   r24 = _7654___
 
-				delay_cycles 15 * 8 - 14
+				delay_cycles 15 * 8 - 14 - BC
 
 				;; read bits 3/1
 				rcall   get_bits_from_clk_data ; 4+8 r24 = _76543_1
 				lsl     r24                    ; 1   r24 = 76543_1_
 
-				delay_cycles 13 * 8 - 13
+				delay_cycles 13 * 8 - 13 - BC
 
 				;; read bits 2/0
 				rcall   get_bits_from_clk_data ; 4+8 r24 = 76543210
 
-				delay_cycles 20*8
+				delay_cycles 20 * 8 - BC
 
 				clr     r25             ; clear upper byte of return value
 				com     r24             ; invert data byte
@@ -1475,25 +1480,25 @@ wheels44_get_byte_1mhz:
 				rcall   get_bits_from_clk_data ; 4+8 r24 = _____7_5
 				lsl     r24                    ; 1   r24 = ____7_5_
 
-				delay_cycles 11 * 8 - 13
+				delay_cycles 11 * 8 - 13 - BC
 
 				;; read bits 6/4
 				rcall   get_bits_from_clk_data ; 4+8 r24 = ____7654
 				swap    r24                    ; 1   r24 = 7654____
 				lsr     r24                    ; 1   r24 = _7654___
 
-				delay_cycles 17 * 8 - 14
+				delay_cycles 17 * 8 - 14 - BC
 
 				;; read bits 3/1
 				rcall   get_bits_from_clk_data ; 4+8 r24 = _76543_1
 				lsl     r24                    ; 1   r24 = 76543_1_
 
-				delay_cycles 16 * 8 - 13
+				delay_cycles 16 * 8 - 13 - BC
 
 				;; read bits 2/0
 				rcall   get_bits_from_clk_data ; 4+8 r24 = 76543210
 
-				delay_cycles 20*8
+				delay_cycles 20 * 8 - BC
 
 				clr     r25             ; clear upper byte of return value
 				com     r24             ; invert data byte
@@ -1516,7 +1521,7 @@ wheels44_get_byte_2mhz:
 				rjmp    1b
 
 				;; delay
-				delay_cycles 15*8 - 2
+				delay_cycles 15 * 8 - 2
 
 				;; get bits 0 and 1
 				in      r19, _SFR_IO_ADDR(IEC_INPUT) ; 1
@@ -1526,7 +1531,7 @@ wheels44_get_byte_2mhz:
 				bld     r24, 1                     ; 1 - r24 = ......10
 
 				;; delay
-				delay_cycles 11*8 - 5
+				delay_cycles 11 * 8 - 5
 
 				;; get bits 2 and 3
 				in      r19, _SFR_IO_ADDR(IEC_INPUT) ; 1
@@ -1536,7 +1541,7 @@ wheels44_get_byte_2mhz:
 				bld     r24, 3                     ; 1 - r24 = ....3210
 
 				;; delay
-				delay_cycles 11*8 - 5
+				delay_cycles 11 * 8 - 5
 
 				;; get bits 4 and 5
 				in      r19, _SFR_IO_ADDR(IEC_INPUT) ; 1
@@ -1546,7 +1551,7 @@ wheels44_get_byte_2mhz:
 				bld     r24, 5                     ; 1 - r24 = ..543210
 
 				;; delay
-				delay_cycles 11*8 - 5
+				delay_cycles 11 * 8 - 5
 
 				;; get bits 6 and 7
 				in      r19, _SFR_IO_ADDR(IEC_INPUT) ; 1
@@ -1556,7 +1561,7 @@ wheels44_get_byte_2mhz:
 				bld     r24, 7                     ; 1 - r24 = 76543210
 
 				;; safety delay
-				delay_cycles 12*8
+				delay_cycles 12 * 8
 
 				;; post process received value and return
 				com     r24                  ; negate all bits
@@ -1575,31 +1580,31 @@ wheels44_send_byte_2mhz:
 				mov     r0, r24               ; 1 - move data to target register
 
 				;; delay
-				delay_cycles 7*8 - 18
+				delay_cycles 7*8 - 18 - BC
 
 				;; send bits 0+1
 				rcall   send_bits_to_clk_data ; 10+6
 
 				;; delay
-				delay_cycles 8*8 - 16
+				delay_cycles 8*8 - 16 - BC
 
 				;; send bits 2+3
 				rcall   send_bits_to_clk_data ; 10+6
 
 				;; delay
-				delay_cycles 11*8 - 16
+				delay_cycles 11*8 - 16 - BC
 
 				;; send bits 4+5
 				rcall   send_bits_to_clk_data ; 10+6
 
 				;; delay
-				delay_cycles 11*8 - 16
+				delay_cycles 11*8 - 16 - BC
 
 				;; send bits 6+7
 				rcall   send_bits_to_clk_data ; 10+6
 
 				;; final delay
-				delay_cycles 14*8
+				delay_cycles 14*8 - BC
 
 				ret
 
@@ -1632,25 +1637,25 @@ ar6_1581_send_byte:
 				rcall   send_bits_to_clk_data ; 10+6
 
 				;; delay
-				delay_cycles 8*8 - 16
+				delay_cycles 8*8 - 16 - BC
 
 				;; send bits 2+3
 				rcall   send_bits_to_clk_data ; 10+6
 
 				;; delay
-				delay_cycles 8*8 - 16
+				delay_cycles 8*8 - 16 - BC
 
 				;; send bits 4+5
 				rcall   send_bits_to_clk_data ; 10+6
 
 				;; delay
-				delay_cycles 8*8 - 16
+				delay_cycles 8*8 - 16 - BC
 
 				;; send bits 6+7
 				rcall   send_bits_to_clk_data ; 10+6
 
 				;; delay
-				delay_cycles 8*8+4 - 6 - 2
+				delay_cycles 8*8+4 - 6 - 2 - BC
 
 				;; set clock low, data high
 				cbi     _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_DATA  ; 1
@@ -1688,7 +1693,7 @@ ar6_1581p_get_byte:
 				lsl     r24                    ; 1   - r24 = ....7.5.
 
 				;; delay
-				delay_cycles 10*8 - 9 - 4
+				delay_cycles 10*8 - 9 - 4 - BC
 
 				;; receive bits 6+4
 				rcall   get_bits_from_clk_data ; 4+8 - r24 = ....7654
@@ -1696,20 +1701,20 @@ ar6_1581p_get_byte:
 				lsr     r24                    ; 1   - r24 = .7654...
 
 				;; delay
-				delay_cycles 16*8 - 10 - 4
+				delay_cycles 16*8 - 10 - 4 - BC
 
 				;; receive bits 3+1
 				rcall   get_bits_from_clk_data ; 4+8 - r24 = .76543.1
 				lsl     r24                    ; 1   - r24 = 76543.1.
 
 				;; delay
-				delay_cycles 10*8 - 9 - 4
+				delay_cycles 10*8 - 9 - 4 - BC
 
 				;; receive bits 2+0
 				rcall   get_bits_from_clk_data ; 4+8 - r24 = 76543210
 
 				;; delay
-				delay_cycles 5*8 - 8 - 1
+				delay_cycles 5*8 - 8 - 1 - BC
 
 				;; set clock low
 				sbi     _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_CLOCK
@@ -1739,7 +1744,7 @@ parallel_write:
 				out     _SFR_IO_ADDR(PARALLEL_PPORT), r24  ; enable pullups on 1-bits
 				com     r24                                ; invert byte
 				out     _SFR_IO_ADDR(PARALLEL_PDDR), r24   ; set 0-bits to output to simulate open collector
-				call    delay1us
+				delay1us
 				ret
 
 				;; void parallel_set_dir(parallel_dir_t direction)
@@ -1757,8 +1762,8 @@ parallel_set_dir:
 parallel_send_handshake:
 				cbi     _SFR_IO_ADDR(PARALLEL_HPORT), PARALLEL_HSK_OUT_BIT ; prepare 0 in PORT register
 				sbi     _SFR_IO_ADDR(PARALLEL_HDDR), PARALLEL_HSK_OUT_BIT  ; set pin to output
-				call    delay1us                                           ; delay
-				call    delay1us
+				delay1us                                           ; delay
+				delay1us
 				cbi     _SFR_IO_ADDR(PARALLEL_HDDR), PARALLEL_HSK_OUT_BIT  ; set pin to input
 				sbi     _SFR_IO_ADDR(PARALLEL_HPORT), PARALLEL_HSK_OUT_BIT ; enable pullup
 				ret
@@ -1793,25 +1798,25 @@ n0sdos_send_byte:
 				rcall   send_bits_to_clk_data ; 10+6
 
 				;; delay
-				delay_cycles 8*8 - 16
+				delay_cycles 8*8 - 16 - BC
 
 				;; send bits 2+3
 				rcall   send_bits_to_clk_data ; 10+6
 
 				;; delay
-				delay_cycles 8*8 - 16
+				delay_cycles 8*8 - 16 - BC
 
 				;; send bits 4+5
 				rcall   send_bits_to_clk_data ; 10+6
 
 				;; delay
-				delay_cycles 8*8 - 16
+				delay_cycles 8*8 - 16 - BC
 
 				;; send bits 6+7
 				rcall   send_bits_to_clk_data ; 10+6
 
 				;; delay
-				delay_cycles 5*8 - 6 - 2
+				delay_cycles 5*8 - 6 - 2 - BC
 
 				;; set clock high, data low
 				cbi     _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_CLOCK ; 1
