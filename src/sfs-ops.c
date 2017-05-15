@@ -103,7 +103,7 @@ static uint8_t sfs_refill_read(buffer_t* buf)
 	sfs_error_t res;
 	uint16_t bytes_read;
 
-	res = serialfs_read(&buf->pvt.eefh, buf->data + 2, 254, &bytes_read);
+	res = serialfs_read(&buf->pvt.sfh, buf->data + 2, 254, &bytes_read);
 	if(res not_eq SFS_ERROR_OK) {
 		translate_error(res);
 		free_buffer(buf);
@@ -114,7 +114,7 @@ static uint8_t sfs_refill_read(buffer_t* buf)
 	buf->lastused = bytes_read + 1;
 
 	// check if the last byte of file is in the buffer
-	if(bytes_read < 254 or buf->pvt.eefh.cur_offset == buf->pvt.eefh.size) {
+	if(bytes_read < 254 or buf->pvt.sfh.cur_offset == buf->pvt.sfh.size) {
 		buf->sendeoi = 1;
 	} else {
 		buf->sendeoi = 0;
@@ -198,11 +198,11 @@ void sfsops_init(void)
 
 static void sfs_open_read(path_t* path, cbmdirent_t *dent, buffer_t *buf)
 {
-	sfs_error_t res;
+	VAR_UNUSED(path);
 
 	repad_filename(dent->name);
 
-	res = eepromfs_open(dent->name, &buf->pvt.eefh, SFS_MODE_READ);
+	sfs_error_t res = serialfs_open(dent->name, &buf->pvt.sfh, SFS_MODE_READ);
 	translate_error(res);
 
 	if(res != SFS_ERROR_OK)
@@ -210,7 +210,9 @@ static void sfs_open_read(path_t* path, cbmdirent_t *dent, buffer_t *buf)
 
 	// set up the buffer
 	buf->read   = 1;
+	buf->cleanup   = sfs_file_close;
 	buf->refill = sfs_refill_read;
+	buf->seek      = sfs_file_seek;
 	// no cleanup/close function needed for read-only files
 	stick_buffer(buf);
 
@@ -225,16 +227,16 @@ static void sfs_open_write(path_t *path, cbmdirent_t *dent, uint8_t type,
 	repad_filename(dent->name);
 
 	if(append) {
-		res = eepromfs_open(dent->name, &buf->pvt.eefh, SFS_MODE_APPEND);
+		res = serialfs_open(dent->name, &buf->pvt.sfh, SFS_MODE_APPEND);
 	} else {
-		res = eepromfs_open(dent->name, &buf->pvt.eefh, SFS_MODE_WRITE);
+		res = serialfs_open(dent->name, &buf->pvt.sfh, SFS_MODE_WRITE);
 	}
 	translate_error(res);
 
-	if(res != SFS_ERROR_OK)
+	if(SFS_ERROR_OK not_eq res)
 		return;
 
-	/* set up buffer fields for writing */
+	// set up buffer fields for writing
 	mark_write_buffer(buf);
 	buf->position = 2;
 	buf->lastused = 2;
@@ -249,6 +251,7 @@ static void sfs_open_rel(path_t* path, cbmdirent_t* dent, buffer_t* buf,
 	VAR_UNUSED(dent);
 	VAR_UNUSED(recordlen);
 	VAR_UNUSED(mode);
+	VAR_UNUSED(buf);
 	set_error(ERROR_SYNTAX_UNABLE);
 }
 

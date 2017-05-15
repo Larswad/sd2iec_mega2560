@@ -104,7 +104,7 @@ ifeq ($(CONFIG_HAVE_EEPROMFS),y)
 endif
 
 ifeq ($(CONFIG_HAVE_SERIALFS),y)
-	SRC += eeprom-fs.c eefs-ops.c
+	SRC += serial-fs.c sfs-ops.c
 endif
 
 # Additional hardware support enabled in the config file

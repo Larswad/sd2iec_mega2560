@@ -33,6 +33,7 @@
 #include "display.h"
 #include "doscmd.h"
 #include "eefs-ops.h"
+#include "sfs-ops.h"
 #include "errormsg.h"
 #include "fatops.h"
 #include "flags.h"
@@ -590,7 +591,7 @@ static void load_directory(uint8_t secondary) {
 #endif
 #ifdef CONFIG_HAVE_SERIALFS
 			else if(command_buffer[1] == '%' && sfs_partition != 255)
-				path.part = esfs_partition;
+				path.part = sfs_partition;
 #endif
 			else {
 				buf->pvt.dir.matchstr = command_buffer + 1;

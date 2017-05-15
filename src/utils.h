@@ -29,6 +29,8 @@
 #include <stdint.h>
 #include <iso646.h>
 
+#include "config.h"
+
 #define VAR_UNUSED(x) (void)(x)
 
 // Side-effect safe min/max
@@ -56,5 +58,9 @@ uint8_t* ustr1tok(uint8_t* str, const uint8_t delim, uint8_t** saveptr);
 /* ASCII to PETSCII string conversion */
 void asc2pet(uint8_t* buf);
 // note: not moving pet2asc out of fatops saves 6 bytes on AVR
+#ifdef CONFIG_HAVE_SERIALFS
+void pet2asc(uint8_t *buf);
+#endif
+
 
 #endif

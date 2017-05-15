@@ -32,6 +32,7 @@
 #include "dirent.h"
 #include "display.h"
 #include "eefs-ops.h"
+#include "sfs-ops.h"
 #include "errormsg.h"
 #include "fatops.h"
 #include "flags.h"

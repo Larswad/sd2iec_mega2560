@@ -1229,7 +1229,7 @@ static inline uint8_t sdcard2_wp(void)
 // SD card 2 CS pin
 static inline __attribute__((always_inline)) void sdcard2_set_ss(uint8_t state)
 {
-	VAR_UNUSED(state);
+	(void)(state);
 }
 
 /* SD Card supply voltage - choose the one appropiate to your board */
@@ -1285,7 +1285,7 @@ static inline void leds_init(void)
 static inline __attribute__((always_inline)) void set_busy_led(uint8_t state)
 {
 	// OPTIONAL: Attach and implement a green led for BUSY.
-	VAR_UNUSED(state);
+	(void)(state);
 //	if (state)
 //		PORTH and_eq ~_BV(PH3);
 //	else

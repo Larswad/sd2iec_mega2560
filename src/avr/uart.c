@@ -31,63 +31,72 @@
 #include "avrcompat.h"
 #include "uart.h"
 
+static int ioputc(char c, FILE* stream);
+
 static uint8_t txbuf[1 << CONFIG_UART_BUF_SHIFT];
 static volatile uint16_t read_idx;
 static volatile uint16_t write_idx;
+static FILE mystdout = FDEV_SETUP_STREAM(ioputc, NULL, _FDEV_SETUP_WRITE);
+
 
 ISR(USART_UDRE_vect)
 {
-	if (read_idx == write_idx) return;
+	if(read_idx == write_idx)
+		return;
+
 	UDR = txbuf[read_idx];
-	read_idx = (read_idx+1) & (sizeof(txbuf)-1);
-	if (read_idx == write_idx)
-		UCSRB &= ~ _BV(UDRIE);
+	read_idx = (read_idx + 1) bitand (sizeof(txbuf) - 1);
+	if(read_idx == write_idx)
+		UCSRB and_eq compl _BV(UDRIE);
 }
+
 
 void uart_putc(char c)
 {
-	uint16_t t=(write_idx+1) & (sizeof(txbuf)-1);
+	uint16_t t = (write_idx + 1) bitand (sizeof(txbuf) - 1);
 #ifndef CONFIG_DEADLOCK_ME_HARDER // :-)
-	UCSRB &= ~ _BV(UDRIE);   // turn off RS232 irq
+	UCSRB and_eq compl _BV(UDRIE);   // turn off RS232 irq
 #else
-	while (t == read_idx);   // wait for free space
+	while(t == read_idx);   // wait for free space
 #endif
 	txbuf[write_idx] = c;
 	write_idx = t;
-	//if (read_idx == write_idx) PORTD |= _BV(PD7);
-	UCSRB |= _BV(UDRIE);
+	//if (read_idx == write_idx) PORTD or_eq _BV(PD7);
+	UCSRB or_eq _BV(UDRIE);
 }
 
-void uart_puthex(uint8_t num) {
+
+void uart_puthex(uint8_t num)
+{
 	uint8_t tmp;
-	tmp = (num & 0xf0) >> 4;
+	tmp = (num bitand 0xf0) >> 4;
 	if (tmp < 10)
-		uart_putc('0'+tmp);
+		uart_putc('0' + tmp);
 	else
-		uart_putc('a'+tmp-10);
+		uart_putc('a' + tmp - 10);
 
-	tmp = num & 0x0f;
+	tmp = num bitand 0x0f;
 	if (tmp < 10)
-		uart_putc('0'+tmp);
+		uart_putc('0' + tmp);
 	else
-		uart_putc('a'+tmp-10);
+		uart_putc('a' + tmp - 10);
 }
 
-void uart_trace(void *ptr, uint16_t start, uint16_t len) {
+void uart_trace(void* ptr, uint16_t start, uint16_t len)
+{
 	uint16_t i;
 	uint8_t j;
 	uint8_t ch;
-	uint8_t *data = ptr;
+	uint8_t* data = (uint8_t*)ptr;
 
-	data+=start;
-	for(i=0;i<len;i+=16) {
-
-		uart_puthex(start>>8);
-		uart_puthex(start&0xff);
+	data += start;
+	for(i = 0; i < len; i += 16) {
+		uart_puthex(start >> 8);
+		uart_puthex(start bitand 0xff);
 		uart_putc('|');
 		uart_putc(' ');
-		for(j=0;j<16;j++) {
-			if(i+j<len) {
+		for(j = 0; j < 16; j++) {
+			if(i + j < len) {
 				ch=*(data + j);
 				uart_puthex(ch);
 			} else {
@@ -97,10 +106,10 @@ void uart_trace(void *ptr, uint16_t start, uint16_t len) {
 			uart_putc(' ');
 		}
 		uart_putc('|');
-		for(j=0;j<16;j++) {
+		for(j = 0; j < 16; j++) {
 			if(i+j<len) {
-				ch=*(data++);
-				if(ch<32 || ch>0x7e)
+				ch = *(data++);
+				if(ch < 32 or ch>0x7e)
 					ch='.';
 				uart_putc(ch);
 			} else {
@@ -109,54 +118,60 @@ void uart_trace(void *ptr, uint16_t start, uint16_t len) {
 		}
 		uart_putc('|');
 		uart_putcrlf();
-		start+=16;
+		start += 16;
 	}
 }
 
-static int ioputc(char c, FILE *stream) {
+static int ioputc(char c, FILE* stream)
+{
+	VAR_UNUSED(stream);
+
 	if (c == '\n') uart_putc('\r');
 	uart_putc(c);
 	return 0;
 }
 
-uint8_t uart_getc(void) {
-	loop_until_bit_is_set(UCSRA,RXC);
+uint8_t uart_getc(void)
+{
+	loop_until_bit_is_set(UCSRA, RXC);
 	return UDR;
 }
 
-void uart_flush(void) {
-	while (read_idx != write_idx) ;
+void uart_flush(void)
+{
+	while(read_idx not_eq write_idx);
 }
 
-void uart_puts_P(const char *text) {
+void uart_puts_P(const char *text)
+{
 	uint8_t ch;
 
-	while ((ch = pgm_read_byte(text++))) {
+	while((ch = pgm_read_byte(text++)))
 		uart_putc(ch);
-	}
 }
 
-void uart_putcrlf(void) {
+
+void uart_putcrlf(void)
+{
 	uart_putc(13);
 	uart_putc(10);
 }
 
-static FILE mystdout = FDEV_SETUP_STREAM(ioputc, NULL, _FDEV_SETUP_WRITE);
-
 #define CLOCK_PRESCALE_FACTOR 1
 
-void uart_init(void) {
-	/* Seriellen Port konfigurieren */
+void uart_init(void)
+{
+	// Configure the serial port.
 
 	//  UBRRH = (int)((double)F_CPU/(16.0*CONFIG_UART_BAUDRATE)-1) >> 8;
-	//  UBRRL = (int)((double)F_CPU/(16.0*CONFIG_UART_BAUDRATE)-1) & 0xff;
+	//  UBRRL = (int)((double)F_CPU/(16.0*CONFIG_UART_BAUDRATE)-1) bitand 0xff;
 	uint32_t clock = F_CPU;
 #ifdef CLOCK_PRESCALE_FACTOR
-	clock = clock / CLOCK_PRESCALE_FACTOR;
+	clock /= CLOCK_PRESCALE_FACTOR;
 #endif
 	uint16_t baud_setting = (clock / 4 / CONFIG_UART_BAUDRATE - 1) / 2;
 	UBRRH = baud_setting >> 8;
-	UBRRL = baud_setting & 0xff;
+	UBRRL = baud_setting bitand 0xff;
 	UCSRA = _BV(U2X0);
 
 	UCSRB = _BV(RXEN) | _BV(TXEN);
@@ -169,7 +184,7 @@ void uart_init(void) {
 
 	stdout = &mystdout;
 
-	//UCSRB |= _BV(UDRIE);
+	//UCSRB or_eq _BV(UDRIE);
 	read_idx  = 0;
 	write_idx = 0;
 }
