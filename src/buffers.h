@@ -115,7 +115,7 @@ typedef struct buffer_s {
 		} fat;
 		d64fh_t d64;           /* File access on D64  */
 		eefs_fh_t eefh;        /* File handle for eepromfs */
-		sfs_fh_t sfh;					 /* File handle for serialfs */
+		sfs_fh_t sffh;					 /* File handle for serialfs */
 		struct {
 			uint8_t part;        /* partition number for $=P */
 			uint8_t *matchstr;   /* Pointer to filename pattern */

@@ -131,7 +131,8 @@ typedef enum {
 										/* and should match case-sensitive    */
 	OPSTYPE_M2I,
 	OPSTYPE_DXX,
-	OPSTYPE_EEFS
+	OPSTYPE_EEFS,
+	OPSTYPE_SFS
 } opstype_t;
 
 /**
@@ -219,7 +220,7 @@ typedef struct dh_s {
 		uint16_t     m2i;
 		struct d64dh d64;
 		eefs_dir_t   eefs;
-		sfs_dir_t		 sfs;
+		sfs_dir_t		 sffs;
 	} dir;
 } dh_t;
 

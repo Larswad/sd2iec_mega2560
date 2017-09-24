@@ -29,7 +29,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <string.h>
-#include "arch-eeprom.h"
 #include "buffers.h"
 #include "serial-fs.h"
 
@@ -61,13 +60,6 @@ _Static_assert(offsetof(nameentry_t, sectors) == offsetof(listentry_t, sectors),
 
 _Static_assert(SECTOR_COUNT < 256,     "eepromfs must have less than 256 sectors");
 _Static_assert(EEPROMFS_ENTRIES < 256, "eepromfs must have less than 256 directory entries");
-
-static uint8_t used_sectors[(SECTOR_COUNT + 7) / 8];
-static uint8_t used_entries[(EEPROMFS_ENTRIES + 7) / 8];
-static uint8_t free_sectors;
-
-static nameentry_t *nameptr = (nameentry_t *)EEPROMFS_BUFFER;
-static listentry_t *listptr = (listentry_t *)EEPROMFS_BUFFER;
 
 /* ------------------------------------------------------------------------- */
 /*  Utility functions                                                        */
@@ -261,7 +253,7 @@ static uint8_t next_free_entry(uint8_t start) {
 /*  external API                                                             */
 /* ------------------------------------------------------------------------- */
 
-void eepromfs_init(void) {
+void serialfs_init(void) {
 	uint8_t i, j;
 
 	free_sectors = SECTOR_COUNT;
@@ -285,7 +277,7 @@ void eepromfs_init(void) {
 	}
 }
 
-void eepromfs_format(void) {
+void serialfs_format(void) {
 	uint32_t *addr = (uint32_t *)EEPROMFS_OFFSET;
 
 	while (addr < (uint32_t *)(EEPROMFS_OFFSET + EEPROMFS_SIZE)) {
@@ -304,11 +296,13 @@ void eepromfs_format(void) {
 	eepromfs_init();
 }
 
-uint8_t eepromfs_free_sectors(void) {
+uint8_t serialfs_free_sectors(void)
+{
 	return free_sectors;
 }
 
-void eepromfs_opendir(eefs_dir_t *dh) {
+void serialfs_opendir(sfs_dir_t *dh)
+{
 	dh->entry = 0;
 }
 
@@ -322,7 +316,8 @@ void eepromfs_opendir(eefs_dir_t *dh) {
  * zero if an entry was returned or non-zero if there
  * was no more entry to read.
  */
-uint8_t eepromfs_readdir(eefs_dir_t *dh, eefs_dirent_t *entry) {
+uint8_t serialfs_readdir(sfs_dir_t *dh, sfs_dirent_t *entry)
+{
 	/* loop until a valid new entry is found */
 	while (dh->entry < EEPROMFS_ENTRIES) {
 		/* read current entry */
@@ -355,7 +350,8 @@ uint8_t eepromfs_readdir(eefs_dir_t *dh, eefs_dirent_t *entry) {
  * can be a read, write or append-access. Returns zero if successful,
  * non-zero if not.
  */
-eefs_error_t eepromfs_open(uint8_t *name, eefs_fh_t *fh, uint8_t flags) {
+sfs_error_t serialfs_open(uint8_t *name, sfs_fh_t *fh, uint8_t flags)
+{
 	uint8_t diridx;
 
 	memset(fh, 0, sizeof(eefs_fh_t));
@@ -386,7 +382,7 @@ eefs_error_t eepromfs_open(uint8_t *name, eefs_fh_t *fh, uint8_t flags) {
 	} else {
 		/* read, append: return error if the file does not exist */
 		if (diridx == 0xff)
-			return EEFS_ERROR_FILENOTFOUND;
+			return SFS_ERROR_FILENOTFOUND;
 
 		fh->entry = diridx;
 		fh->size  = nameptr->size;
@@ -421,7 +417,7 @@ eefs_error_t eepromfs_open(uint8_t *name, eefs_fh_t *fh, uint8_t flags) {
 		}
 	} // non-write
 
-	return EEFS_ERROR_OK;
+	return SFS_ERROR_OK;
 }
 
 /**
@@ -436,7 +432,8 @@ eefs_error_t eepromfs_open(uint8_t *name, eefs_fh_t *fh, uint8_t flags) {
  * @bytes_written. Returns an eepromfs error code depending on the
  * result.
  */
-eefs_error_t eepromfs_write(eefs_fh_t *fh, void *data, uint16_t length, uint16_t *bytes_written) {
+sfs_error_t serialfs_write(sfs_fh_t *fh, void *data, uint16_t length, uint16_t *bytes_written)
+{
 	uint8_t *bdata = data;
 
 	if (fh->filemode != EEFS_MODE_WRITE)
@@ -503,7 +500,7 @@ eefs_error_t eepromfs_write(eefs_fh_t *fh, void *data, uint16_t length, uint16_t
 }
 
 /**
- * eepromfs_read - read from a file
+ * serialfs_read - read from a file
  * @fh        : pointer to file handle
  * @data      : pointer to buffer for data to be read
  * @length    : number of bytes to read
@@ -514,7 +511,8 @@ eefs_error_t eepromfs_write(eefs_fh_t *fh, void *data, uint16_t length, uint16_t
  * @bytes_written. Returns an eepromfs error code depending on the
  * result.
  */
-eefs_error_t eepromfs_read(eefs_fh_t *fh, void *data, uint16_t length, uint16_t *bytes_read) {
+sfs_error_t serialfs_read(sfs_fh_t *fh, void *data, uint16_t length, uint16_t *bytes_read)
+{
 	uint8_t *bdata = data;
 
 	if (fh->filemode != EEFS_MODE_READ)
@@ -572,7 +570,8 @@ eefs_error_t eepromfs_read(eefs_fh_t *fh, void *data, uint16_t length, uint16_t 
  * This function closes the file opened on @fh.
  * No return value.
  */
-void eepromfs_close(eefs_fh_t *fh) {
+void serialfs_close(sfs_fh_t *fh)
+{
 	// FIXME: Read mode check could be removed if write_entry only writes changed bytes (EEPROMFS_MINIMIZE_WRITES)
 	if (fh->filemode != EEFS_MODE_READ) {
 		/* write new file length */

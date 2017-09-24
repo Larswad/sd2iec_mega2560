@@ -35,14 +35,15 @@
 #include "parser.h"
 #include "ustring.h"
 #include "sfs-ops.h"
+#include "ops_common.h"
 
 /* ------------------------------------------------------------------------- */
 /*  data structures, constants, global variables                             */
 /* ------------------------------------------------------------------------- */
 
 //                                           1234567890123456
-static const PROGMEM uint8_t disk_label[] = "SERIALFS        ";
-static const PROGMEM uint8_t disk_id[]    = "SL 2A";
+static const PROGMEM uint8_t s_diskLabel[] = "SERIALFS        ";
+static const PROGMEM uint8_t s_diskId[]    = "SL 2A";
 
 uint8_t sfs_partition;
 
@@ -103,7 +104,7 @@ static uint8_t sfs_refill_read(buffer_t* buf)
 	sfs_error_t res;
 	uint16_t bytes_read;
 
-	res = serialfs_read(&buf->pvt.sfh, buf->data + 2, 254, &bytes_read);
+	res = serialfs_read(&buf->pvt.sffh, buf->data + 2, 254, &bytes_read);
 	if(res not_eq SFS_ERROR_OK) {
 		translate_error(res);
 		free_buffer(buf);
@@ -114,7 +115,7 @@ static uint8_t sfs_refill_read(buffer_t* buf)
 	buf->lastused = bytes_read + 1;
 
 	// check if the last byte of file is in the buffer
-	if(bytes_read < 254 or buf->pvt.sfh.cur_offset == buf->pvt.sfh.size) {
+	if(bytes_read < 254 or buf->pvt.sffh.cur_offset == buf->pvt.sffh.size) {
 		buf->sendeoi = 1;
 	} else {
 		buf->sendeoi = 0;
@@ -139,10 +140,10 @@ static uint8_t sfs_refill_write(buffer_t* buf)
 	if(not buf->mustflush)
 		buf->lastused = buf->position - 1;
 
-	res = serialfs_write(&buf->pvt.eefh, buf->data + 2, buf->lastused - 1, &byteswritten);
+	res = serialfs_write(&buf->pvt.sffh, buf->data + 2, buf->lastused - 1, &byteswritten);
 	if(res not_eq SFS_ERROR_OK) { // serialfs never returns OK if the write was incomplete
 		translate_error(res);
-		serialfs_close(&buf->pvt.eefh);
+		serialfs_close(&buf->pvt.sffh);
 		free_buffer(buf);
 		return 1;
 	}
@@ -171,7 +172,7 @@ static uint8_t sfs_cleanup_write(buffer_t* buf)
 	if(buf->refill(buf))
 		return 1;
 
-	serialfs_close(&buf->pvt.eefh);
+	serialfs_close(&buf->pvt.sffh);
 	buf->cleanup = callback_dummy;
 	return 0;
 }
@@ -196,13 +197,95 @@ void sfsops_init(void)
 	//serialfs_init();
 }
 
+/**
+ * fat_file_seek - callback for seek
+ * @buf     : buffer to be worked on
+ * @position: offset to seek to
+ * @index   : offset within the record to seek to
+ *
+ * This function seeks to the offset position in the file associated
+ * with the given buffer and sets the read pointer to the byte given
+ * in index, effectively seeking to (position+index) for normal files.
+ * Returns 1 if an error occured, 0 otherwise.
+ */
+uint8_t sfs_file_seek(buffer_t *buf, uint32_t position, uint8_t index)
+{
+	VAR_UNUSED(buf);
+	VAR_UNUSED(position);
+	VAR_UNUSED(index);
+	// TODO: Process the seek over serialfs
+	/*
+	uint32_t pos = position + buf->pvt.fat.headersize;
+
+	if (buf->dirty)
+		if (sfs_file_write(buf))
+			return 1;
+
+	if (buf->pvt.fat.fh.fsize >= pos) {
+		FRESULT res = f_lseek(&buf->pvt.fat.fh, pos);
+		if (res != FR_OK) {
+			parse_error(res,0);
+			f_close(&buf->pvt.fat.fh);
+			free_buffer(buf);
+			return 1;
+		}
+
+		if (sfs_file_read(buf))
+			return 1;
+	} else {
+		buf->data[2]  = (buf->recordlen ? 255:13);
+		buf->lastused = 2;
+		buf->fptr     = position;
+		set_error(ERROR_RECORD_MISSING);
+	}
+
+	buf->position = index + 2;
+	if(index + 2 > buf->lastused)
+		buf->position = buf->lastused;
+*/
+	return 0;
+}
+
+/**
+ * sfs_file_close - close the file associated with a buffer
+ * @buf: buffer to be worked on
+ *
+ * This function closes the file associated with the given buffer. If the buffer
+ * was opened for writing the data contents will be stored if required.
+ * Additionally the buffer will be marked as free.
+ * Used as a cleanup-callback for reading and writing.
+ */
+static uint8_t sfs_file_close(buffer_t *buf)
+{
+	FRESULT res;
+
+	if(!buf->allocated) return 0;
+
+	if(buf->write) {
+		// Write the remaining data using the callback
+		if(buf->refill(buf))
+			return 1;
+	}
+
+	// TODO: process remote close of buf->pvt.sffh
+	//res = f_close(&buf->pvt.sffh);
+	res = 0;
+
+
+	parse_error(res,1);
+	buf->cleanup = callback_dummy;
+
+	return res == FR_OK ? 1 : 0;
+}
+
+
 static void sfs_open_read(path_t* path, cbmdirent_t *dent, buffer_t *buf)
 {
 	VAR_UNUSED(path);
 
 	repad_filename(dent->name);
 
-	sfs_error_t res = serialfs_open(dent->name, &buf->pvt.sfh, SFS_MODE_READ);
+	sfs_error_t res = serialfs_open(dent->name, &buf->pvt.sffh, SFS_MODE_READ);
 	translate_error(res);
 
 	if(res != SFS_ERROR_OK)
@@ -227,9 +310,9 @@ static void sfs_open_write(path_t *path, cbmdirent_t *dent, uint8_t type,
 	repad_filename(dent->name);
 
 	if(append) {
-		res = serialfs_open(dent->name, &buf->pvt.sfh, SFS_MODE_APPEND);
+		res = serialfs_open(dent->name, &buf->pvt.sffh, SFS_MODE_APPEND);
 	} else {
-		res = serialfs_open(dent->name, &buf->pvt.sfh, SFS_MODE_WRITE);
+		res = serialfs_open(dent->name, &buf->pvt.sffh, SFS_MODE_WRITE);
 	}
 	translate_error(res);
 
@@ -279,7 +362,7 @@ static uint8_t sfs_disk_label(uint8_t part, uint8_t* label)
 {
 	VAR_UNUSED(part);
 	// copy with zero-termination
-	memcpy_P(label, disk_label, 17);
+	memcpy_P(label, s_diskLabel, 17);
 	return 0;
 }
 
@@ -287,22 +370,25 @@ static uint8_t sfs_dir_label(path_t* path, uint8_t* label)
 {
 	VAR_UNUSED(path);
 	// copy without zero-termination
-	memcpy_P(label, disk_label, 16);
+	memcpy_P(label, s_diskLabel, 16);
 	return 0;
 }
 
 static uint8_t sfs_disk_id(path_t* path, uint8_t* id)
 {
 	VAR_UNUSED(path);
-	memcpy_P(id, disk_id, 5);
+	memcpy_P(id, s_diskId, 5);
 	return 0;
 }
+
+#define SFS_SECTORSIZE 256
 
 static uint16_t sfs_disk_free(uint8_t part)
 {
 	VAR_UNUSED(part);
+	// This is a meaningless operation since the host will have almost unlimited storage for this purpose.
 	// converted to 256-byte-blocks as a rough CBM block approximation
-	return eepromfs_free_sectors() / (256 / EEPROMFS_SECTORSIZE);
+	return 65535 / (256 / SFS_SECTORSIZE);
 }
 
 static void sfs_read_sector(buffer_t* buf, uint8_t part, uint8_t track, uint8_t sector)
@@ -319,12 +405,16 @@ static void sfs_write_sector(buffer_t *buf, uint8_t part, uint8_t track, uint8_t
 	set_error_ts(ERROR_READ_NOHEADER, track, sector);
 }
 
+// Dummy function for format, we don't allow it.
 static void sfs_format(uint8_t drv, uint8_t *name, uint8_t *id)
 {
-	serialfs_format();
+	VAR_UNUSED(drv);
+	VAR_UNUSED(name);
+	VAR_UNUSED(id);
+	set_error(ERROR_SYNTAX_UNKNOWN);
 }
 
-static uint8_t sfs_opendir(dh_t *dh, path_t *path)
+static uint8_t sfs_opendir(dh_t* dh, path_t* path)
 {
 	dh->part = path->part;
 	eepromfs_opendir(&dh->dir.eefs);
@@ -334,13 +424,13 @@ static uint8_t sfs_opendir(dh_t *dh, path_t *path)
 
 static int8_t sfs_readdir(dh_t *dh, cbmdirent_t *dent)
 {
-	sfs_dirent_t eedent;
+	sfs_dirent_t sfsdent;
 	uint8_t       res;
 
 	/* clear sfs-dirent to ensure a zero-terminated file name */
-	memset(&eedent, 0, sizeof(sfs_dirent_t));
+	memset(&sfsdent, 0, sizeof(sfs_dirent_t));
 
-	res = eepromfs_readdir(&dh->dir.eefs, &eedent);
+	res = serialfs_readdir(&dh->dir.sffs, &sfsdent);
 
 	if(res)
 		return -1;
@@ -350,9 +440,9 @@ static int8_t sfs_readdir(dh_t *dh, cbmdirent_t *dent)
 
 	dent->opstype   = OPSTYPE_SFS;
 	dent->typeflags = TYPE_PRG;
-	dent->blocksize = (eedent.size + 255) / 256; // FIXME: Maybe change to 254-byte blocks?
-	terminate_filename(eedent.name);
-	memcpy(dent->name, eedent.name, CBM_NAME_LENGTH);
+	dent->blocksize = (sfsdent.size + 255) / 256; // FIXME: Maybe change to 254-byte blocks?
+	terminate_filename(sfsdent.name);
+	memcpy(dent->name, sfsdent.name, CBM_NAME_LENGTH);
 
 	// FIXME: add fake date/time fields, add a clear_dent() function to do the memset and this
 
@@ -385,6 +475,14 @@ static void sfs_rename(path_t* path, cbmdirent_t* oldname, uint8_t* newname)
 	translate_error(res);
 }
 
+static void sfs_mkdir(path_t* path, uint8_t* dirname)
+{
+	VAR_UNUSED(path);
+	VAR_UNUSED(dirname);
+	set_error(ERROR_SYNTAX_UNABLE);
+	return;
+}
+
 /* ------------------------------------------------------------------------- */
 /*  ops struct                                                               */
 /* ------------------------------------------------------------------------- */
@@ -403,7 +501,7 @@ const PROGMEM fileops_t sfs_ops = {
 	sfs_format,
 	sfs_opendir,
 	sfs_readdir,
-	sfs_image_mkdir,
+	sfs_mkdir,
 	sfs_chdir,
 	sfs_rename
 };

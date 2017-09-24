@@ -459,7 +459,8 @@ static uint8_t write_data(buffer_t *buf) {
  *
  * This function writes the contents of buf to the associated file.
  */
-static uint8_t fat_file_write(buffer_t *buf) {
+static uint8_t fat_file_write(buffer_t *buf)
+{
 	FRESULT res = FR_OK;
 	uint32_t fptr;
 	uint32_t i = 0;
@@ -530,7 +531,8 @@ static uint8_t fat_file_write(buffer_t *buf) {
  * in index, effectively seeking to (position+index) for normal files.
  * Returns 1 if an error occured, 0 otherwise.
  */
-uint8_t fat_file_seek(buffer_t *buf, uint32_t position, uint8_t index) {
+uint8_t fat_file_seek(buffer_t *buf, uint32_t position, uint8_t index)
+{
 	uint32_t pos = position + buf->pvt.fat.headersize;
 
 	if (buf->dirty)
@@ -567,7 +569,8 @@ uint8_t fat_file_seek(buffer_t *buf, uint32_t position, uint8_t index) {
  * @buf: buffer to be worked on
  *
  */
-static uint8_t fat_file_sync(buffer_t *buf) {
+static uint8_t fat_file_sync(buffer_t *buf)
+{
 	return fat_file_seek(buf,buf->fptr + buf->recordlen,0);
 }
 
@@ -580,7 +583,8 @@ static uint8_t fat_file_sync(buffer_t *buf) {
  * Additionally the buffer will be marked as free.
  * Used as a cleanup-callback for reading and writing.
  */
-static uint8_t fat_file_close(buffer_t *buf) {
+static uint8_t fat_file_close(buffer_t *buf)
+{
 	FRESULT res;
 
 	if (!buf->allocated) return 0;
@@ -1553,7 +1557,7 @@ uint8_t image_chdir(path_t *path, cbmdirent_t *dent) {
  *
  * This function does nothing.
  */
-void image_mkdir(path_t *path, uint8_t *dirname) {
+void image_mkdir(path_t* path, uint8_t* dirname) {
 	set_error(ERROR_SYNTAX_UNABLE);
 	return;
 }
