@@ -27,6 +27,7 @@
 #define SERIALFS_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 // NOTE: Not tested with anything but 16
 #define SFS_NAME_LENGTH 16
@@ -63,7 +64,7 @@ typedef struct {
 	uint8_t  filemode;    // read/write/append - FIXME: read-only?
 } sfs_fh_t;
 
-void         serialfs_init(void);
+bool serialfs_init(void);
 void         serialfs_format(void);
 uint8_t      serialfs_free_sectors(void);
 void         serialfs_opendir(sfs_dir_t *dh);

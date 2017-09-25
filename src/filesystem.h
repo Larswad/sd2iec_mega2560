@@ -28,25 +28,19 @@
 
 #include "fatops.h"
 #include "eefs-ops.h"
+#include "sfs-ops.h"
 
 // FIXME: Move d64_invalidate and maybe p00cache_invalidate out of fatops.c?
 
-#ifdef CONFIG_HAVE_EEPROMFS
+//#ifdef CONFIG_HAVE_EEPROMFS
 /* initialize both fatops and eefs */
 static inline void filesystem_init(uint8_t preserve_dir) {
 	fatops_init(preserve_dir);
 	eefsops_init();
-}
-#else
-// just fatops and/or serial file system
-static inline void filesystem_init(uint8_t preserve_dir) {
-	fatops_init(preserve_dir);
 #ifdef CONFIG_HAVE_SERIALFS
 	sfsops_init();
 #endif
 }
-
-#endif
-
+//#endif
 
 #endif

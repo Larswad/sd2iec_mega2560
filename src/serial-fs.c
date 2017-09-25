@@ -31,6 +31,7 @@
 #include <string.h>
 #include "buffers.h"
 #include "serial-fs.h"
+#include "timer.h"
 
 /* ------------------------------------------------------------------------- */
 /*  data structures, constants, global variables                             */
@@ -256,25 +257,35 @@ static uint8_t txbuf[1 << CONFIG_UART_BUF_SHIFT];
 static volatile uint16_t uartReadIx;
 static volatile uint16_t uartWriteIx;
 
-#define DGRAM_MAGIC 0x56
+#define DGRAM_MAGIC0 0x56
+#define DGRAM_MAGIC1 0x51
 
 typedef enum {
+	miHandshakeReq,
+	miHandshakeCfm,
+	miHandshakeRej,
+
 	miFileOpenReq,
-	miFileOpenResp,
+	miFileOpenCfm,
 	miFileOpenRej,
 
 	miFileCloseReq,
-	miFileCloseResp,
-	miFileCloseRej,
-
+	miFileCloseCfm,
+	miFileCloseRej
 } SFSMsgId;
 
 
 typedef struct tagSFSDGram {
-	uint16_t ident; // must contain DGRAM_MAGIC (for re-sync. in case data transfer has errors).
-	uint8_t type;		// message content. For some messages the length field may be omitted since it is not needed.
-	uint8_t length;	// length remaining to read after this byte (exluding this). 0 means 0x100.
+	struct tagHeader {
+		uint8_t ident[2]; // must contain DGRAM_MAGIC (for re-sync. in case data transfer has errors).
+		uint8_t type;		// message content. For some messages the length field may be omitted since it is not needed.
+		uint8_t chksum;		// really a pad, but may be used for checksum.
+		uint16_t length;	// length of this complete message including header.
+	} Header;
 	union {
+		struct {
+			uint8_t numPartitions;
+		} HandshakeCfm;
 		struct {
 			uint8_t name[1];			// name of file to open.
 			// TODO: more to add here for this command.
@@ -304,7 +315,7 @@ ISR(SFS_USART_UDRE_vect)
 		SFS_UCSRB and_eq compl _BV(SFS_UDRIE);
 }
 
-void uartWriteByte(char c)
+static void uartWriteByte(uint8_t c)
 {
 	uint16_t t = (uartWriteIx + 1) bitand (sizeof(txbuf) - 1);
 #ifndef CONFIG_DEADLOCK_ME_HARDER // :-)
@@ -318,16 +329,47 @@ void uartWriteByte(char c)
 	SFS_UCSRB or_eq _BV(SFS_UDRIE);
 }
 
-uint8_t uartReadByte(void)
+// 0 in length here means 0x10000 !
+static void uartWriteBuf(uint8_t* buf, uint16_t length)
 {
-	loop_until_bit_is_set(SFS_UCSRA, SFS_RXC);
-	return SFS_UDR;
+	do uartWriteByte(*buf++); while(--length);
 }
 
-void uartFlush(void)
+// 100 ticks per second
+static bool uartReadByte(uint8_t* byte, uint8_t timeout)
+{
+	tick_t end = getticks() + timeout;
+	while(bit_is_clear(SFS_UCSRA, SFS_RXC))	{
+		if(time_after(getticks(), end))
+			return false; // we timed out!
+	}
+	*byte = SFS_UDR;
+	return true;
+}
+
+// 100 ticks per second
+static bool uartReadBuf(uint8_t* buf, uint16_t length, uint8_t timeout)
+{
+	do {
+		// timeout restarts after every loop.
+		tick_t end = getticks() + timeout;
+		while(bit_is_clear(SFS_UCSRA, SFS_RXC)) {
+			if(time_after(getticks(), end))
+				return false; // we timed out!
+		}
+		*buf++ = SFS_UDR;
+	} while(--length);
+
+	return true;
+}
+
+static void uartFlush(void)
 {
 	while(uartReadIx not_eq uartWriteIx);
 }
+
+static SFSDGramT s_outDGram;
+static SFSDGramT s_inDGram;
 
 static void uartInit(void)
 {
@@ -353,55 +395,63 @@ static void uartInit(void)
 #endif
 
 	//SFS_UCSRB or_eq _BV(SFS_UDRIE);
-	uartReadIx  = 0;
-	uartWriteIx = 0;
+	uartReadIx  = uartWriteIx = 0;
+
+	s_outDGram.Header.ident[0] = s_inDGram.Header.ident[0] = DGRAM_MAGIC0;
+	s_outDGram.Header.ident[1] = s_inDGram.Header.ident[1] = DGRAM_MAGIC1;
 }
 
+// The timeout is given in multiples of 10 ms (0 = don't wait for answer, means null is always returned).
+static SFSDGramT* sfsRequest(SFSDGramT* req, uint8_t timeout)
+{
+	// TODO: some checksumming for outgoing?
+
+	uartWriteBuf((uint8_t*)req, req->Header.length);
+	if(0 == timeout)
+		return NULL;
+
+	// wait for an answer with the given timeout
+	uint8_t ident[2] = { 0 };
+	do {
+		if(not uartReadByte(&ident[1], timeout))
+			return NULL; // timeout
+		if(ident[0] not_eq DGRAM_MAGIC0 or ident[1] not_eq DGRAM_MAGIC1)
+			ident[0] = ident[1];
+	} while(ident[0] not_eq DGRAM_MAGIC0 or ident[1] not_eq DGRAM_MAGIC1);
+
+	// read rest of header.
+	if(not uartReadBuf((uint8_t*)&s_inDGram.Header.type, sizeof(req->Header) - sizeof(ident), timeout))
+		return NULL; // timeout
+
+	if(req->Header.length > sizeof(SFSDGramT) or req->Header.length < sizeof(req->Header)) // weird! go searching / sync, handle this!
+		return NULL;
+
+	if(req->Header.length > sizeof(req->Header.length)) {
+		// read rest of message.
+		if(not uartReadBuf((uint8_t*)(&s_inDGram.U), req->Header.length - sizeof(req->Header), timeout))
+			return NULL; // timeout
+	}
+
+	// TODO: some incoming checksum check?
+
+	return &s_inDGram;
+}
+
+static SFSDGramT* sfsReqDGram(uint8_t type, uint8_t size)
+{
+	s_outDGram.Header.type = type;
+	s_outDGram.Header.length = size + sizeof(s_outDGram.Header);
+	return &s_outDGram;
+}
 /* ------------------------------------------------------------------------- */
 /*  external API                                                             */
 /* ------------------------------------------------------------------------- */
 
-void serialfs_init(void) {
-	uint8_t i, j;
-
-	free_sectors = SECTOR_COUNT;
-	memset(used_sectors, 0, sizeof(used_sectors));
-	memset(used_entries, 0, sizeof(used_entries));
-
-	/* scan all directory entries */
-	for (i = 0; i < EEPROMFS_ENTRIES; i++) {
-		read_entry(i);
-
-		/* check if entry is in use */
-		if (!(nameptr->flags & EEFS_FLAG_DELETED)) {
-			set_bit(used_entries, i, true);
-
-			/* mark their sectors as used */
-			for (j = 0; j < curentry_max_sectors(); j++) {
-				if (listptr->sectors[j] != SECTOR_FREE)
-					mark_sector(listptr->sectors[j], true);
-			}
-		}
-	}
-}
-
-void serialfs_format(void) {
-	uint32_t *addr = (uint32_t *)EEPROMFS_OFFSET;
-
-	while (addr < (uint32_t *)(EEPROMFS_OFFSET + EEPROMFS_SIZE)) {
-		uint32_t val;
-
-		eeprom_read_block(&val, addr, sizeof(val));
-		if (val != 0xffffffffUL) {
-			/* clear only if neccessary to reduce number of writes */
-			val = 0xffffffffUL;
-			eeprom_write_block(&val, addr, sizeof(val));
-		}
-		addr++;
-	}
-
-	/* data structures have changed, re-init */
-	eepromfs_init();
+bool serialfs_init(void)
+{
+	uartInit();
+	SFSDGramT* resp = sfsRequest(sfsReqDGram(miHandshakeReq, 0), HZ / 2);
+	return NULL not_eq resp and miHandshakeCfm == resp->Header.type;
 }
 
 uint8_t serialfs_free_sectors(void)

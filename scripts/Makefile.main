@@ -100,7 +100,7 @@ ifeq ($(CONFIG_P00CACHE),y)
 endif
 
 ifeq ($(CONFIG_HAVE_EEPROMFS),y)
-	SRC += eeprom-fs.c eefs-ops.c
+	SRC += eeprom-fs.c eefs-ops.c ops_common.c
 endif
 
 ifeq ($(CONFIG_HAVE_SERIALFS),y)

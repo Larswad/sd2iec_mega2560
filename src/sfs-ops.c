@@ -133,26 +133,64 @@ static uint8_t sfs_refill_read(buffer_t* buf)
  */
 static uint8_t sfs_refill_write(buffer_t* buf)
 {
-	sfs_error_t res;
-	uint16_t byteswritten;
+	VAR_UNUSED(buf);
+	/*
+	FRESULT res = FR_OK;
+	uint32_t fptr;
+	uint32_t i = 0;
 
-	// fix up lastused for incomplete blocks
-	if(not buf->mustflush)
-		buf->lastused = buf->position - 1;
+	fptr = buf->pvt.fat.fh.fsize - buf->pvt.fat.headersize;
 
-	res = serialfs_write(&buf->pvt.sffh, buf->data + 2, buf->lastused - 1, &byteswritten);
-	if(res not_eq SFS_ERROR_OK) { // serialfs never returns OK if the write was incomplete
-		translate_error(res);
-		serialfs_close(&buf->pvt.sffh);
-		free_buffer(buf);
-		return 1;
+	// on a REL file, the fptr will be be at the end of the record we just read.  Reposition.
+	if (buf->fptr != fptr) {
+		res = f_lseek(&buf->pvt.fat.fh, buf->pvt.fat.headersize + buf->fptr);
+		if (res != FR_OK) {
+			parse_error(res,1);
+			f_close(&buf->pvt.fat.fh);
+			free_buffer(buf);
+			return 1;
+		}
 	}
 
-	mark_buffer_clean(buf);
-	buf->mustflush = 0;
-	buf->position  = 2;
-	buf->lastused  = 2;
+	if(buf->fptr > fptr)
+		i = buf->fptr - fptr;
 
+	if(res == FR_OK) {
+		if(write_data(buf))
+			return 1;
+	}
+
+	if(i) {
+		// we need to fill bytes.
+		// position to old end of file.
+		res = f_lseek(&buf->pvt.fat.fh, buf->pvt.fat.headersize + fptr);
+		buf->mustflush = 0;
+		buf->fptr = fptr;
+		buf->data[2] = (buf->recordlen?255:0);
+		memset(buf->data + 3,0,253);
+		while(res == FR_OK && i) {
+			if (buf->recordlen)
+				buf->lastused = buf->recordlen;
+			else
+				buf->lastused = (i>254 ? 254 : (uint8_t) i);
+
+			i -= buf->lastused;
+			buf->position = buf->lastused + 2;
+
+			if(write_data(buf))
+				return 1;
+		}
+		res = f_lseek(&buf->pvt.fat.fh, buf->pvt.fat.fh.fsize);
+		if (res != FR_OK) {
+			uart_putc('r');
+			parse_error(res,1);
+			f_close(&buf->pvt.fat.fh);
+			free_buffer(buf);
+			return 1;
+		}
+		buf->fptr = buf->pvt.fat.fh.fptr - buf->pvt.fat.headersize;
+	}
+*/
 	return 0;
 }
 
@@ -189,12 +227,14 @@ void sfsops_init(void)
 	// do not add if all partitions are already in use
 	if(max_part >= CONFIG_MAX_PARTITIONS)
 		return;
+	if(not serialfs_init())
+		return; // no answer or reject on remote end. We go on without SFS.
 
+	// As of now we can only handle one remote partitions due to the sd2iec partition handling and command buffer handling.
+	// It is possible to add more, but requires some substantial refactoring.
 	sfs_partition = max_part;
 	partition[sfs_partition].fop = &sfs_ops;
 	++max_part;
-
-	//serialfs_init();
 }
 
 /**
@@ -259,7 +299,8 @@ static uint8_t sfs_file_close(buffer_t *buf)
 {
 	FRESULT res;
 
-	if(!buf->allocated) return 0;
+	if(!buf->allocated)
+		return 0;
 
 	if(buf->write) {
 		// Write the remaining data using the callback
@@ -303,33 +344,40 @@ static void sfs_open_read(path_t* path, cbmdirent_t *dent, buffer_t *buf)
 }
 
 static void sfs_open_write(path_t *path, cbmdirent_t *dent, uint8_t type,
-														buffer_t *buf, uint8_t append)
+													 buffer_t *buf, uint8_t append)
 {
-	sfs_error_t res;
+	FRESULT res;
 
-	repad_filename(dent->name);
+	if (append) {
+		partition[path->part].fatfs.curr_dir = path->dir.fat;
+		res = f_open(&partition[path->part].fatfs, &buf->pvt.fat.fh, dent->pvt.fat.realname, FA_WRITE | FA_OPEN_EXISTING);
+		if (dent->opstype == OPSTYPE_FAT_X00)
+			/* It's a [PSUR]00 file */
+			buf->pvt.fat.headersize = P00_HEADER_SIZE;
+		if (res == FR_OK)
+			res = f_lseek(&buf->pvt.fat.fh, buf->pvt.fat.fh.fsize);
+		buf->fptr = buf->pvt.fat.fh.fsize - buf->pvt.fat.headersize;
+	} else
+		res = create_file(path, dent, type, buf, 0);
 
-	if(append) {
-		res = serialfs_open(dent->name, &buf->pvt.sffh, SFS_MODE_APPEND);
-	} else {
-		res = serialfs_open(dent->name, &buf->pvt.sffh, SFS_MODE_WRITE);
-	}
-	translate_error(res);
-
-	if(SFS_ERROR_OK not_eq res)
+	if (res != FR_OK) {
+		parse_error(res,0);
 		return;
+	}
 
-	// set up buffer fields for writing
 	mark_write_buffer(buf);
-	buf->position = 2;
-	buf->lastused = 2;
-	buf->data[2]  = 0x0d;
-	buf->refill   = sfs_refill_write;
-	buf->cleanup  = sfs_cleanup_write;
+	buf->position  = 2;
+	buf->lastused  = 2;
+	buf->cleanup   = sfs_file_close;
+	buf->refill    = sfs_refill_write;
+	buf->seek      = sfs_file_seek;
+
+	/* If no data is written the file should end up with a single 0x0d byte */
+	buf->data[2] = 13;
 }
 
 static void sfs_open_rel(path_t* path, cbmdirent_t* dent, buffer_t* buf,
-													uint8_t recordlen, uint8_t mode) {
+												 uint8_t recordlen, uint8_t mode) {
 	VAR_UNUSED(path);
 	VAR_UNUSED(dent);
 	VAR_UNUSED(recordlen);
@@ -338,24 +386,35 @@ static void sfs_open_rel(path_t* path, cbmdirent_t* dent, buffer_t* buf,
 	set_error(ERROR_SYNTAX_UNABLE);
 }
 
-static uint8_t sfs_delete(path_t* path, cbmdirent_t *dent)
+static uint8_t sfs_delete(path_t* path, cbmdirent_t* dent)
 {
 	VAR_UNUSED(path);
-	sfs_error_t res;
-
+	VAR_UNUSED(dent);
+//	FRESULT res;
+//	uint8_t *name;
+/*
 	set_dirty_led(1);
-
-	repad_filename(dent->name);
-	res = serialfs_delete(dent->name);
-	translate_error(res);
+	if (dent->pvt.fat.realname[0]) {
+		name = dent->pvt.fat.realname;
+		p00cache_invalidate();
+	} else {
+		name = dent->name;
+		pet2asc(name);
+	}
+	partition[path->part].fatfs.curr_dir = path->dir.fat;
+	res = f_unlink(&partition[path->part].fatfs, name);
 
 	update_leds();
 
-	// check result, can only be not_found or ok
-	if(res == SFS_ERROR_OK)
+	parse_error(res,0);
+	if (res == FR_OK)
 		return 1;
-	else
+	else if (res == FR_NO_FILE)
 		return 0;
+	else
+		return 255;
+*/
+	return 0;
 }
 
 static uint8_t sfs_disk_label(uint8_t part, uint8_t* label)
