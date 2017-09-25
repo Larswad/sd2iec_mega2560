@@ -1,25 +1,25 @@
 /* sd2iec - SD/MMC to Commodore serial bus interface/controller
-   Copyright (C) 2007-2017  Ingo Korb <ingo@akana.de>
+	 Copyright (C) 2007-2017  Ingo Korb <ingo@akana.de>
 
-   Inspired by MMC2IEC by Lars Pontoppidan et al.
+	 Inspired by MMC2IEC by Lars Pontoppidan et al.
 
-   FAT filesystem access based on code from ChaN and Jim Brain, see ff.c|h.
+	 FAT filesystem access based on code from ChaN and Jim Brain, see ff.c|h.
 
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; version 2 of the License only.
+	 This program is free software; you can redistribute it and/or modify
+	 it under the terms of the GNU General Public License as published by
+	 the Free Software Foundation; version 2 of the License only.
 
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
+	 This program is distributed in the hope that it will be useful,
+	 but WITHOUT ANY WARRANTY; without even the implied warranty of
+	 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	 GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+	 You should have received a copy of the GNU General Public License
+	 along with this program; if not, write to the Free Software
+	 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 
-   avrcompat.h: Compatibility defines for multiple target chips
+	 avrcompat.h: Compatibility defines for multiple target chips
 */
 
 #ifndef AVRCOMPAT_H
@@ -52,7 +52,7 @@
 #    define USART_UDRE_vect USART1_UDRE_vect
 #    define USART_RX_vect   USART1_RX_vect
 #  else
-     /* Default is USART0 */
+		 /* Default is USART0 */
 #    define RXC   RXC0
 #    define RXEN  RXEN0
 #    define TXC   TXC0
@@ -69,6 +69,26 @@
 #    define RXCIE RXCIE0
 #    define USART_UDRE_vect USART0_UDRE_vect
 #    define USART_RX_vect   USART0_RX_vect
+
+#ifdef CONFIG_HAVE_SERIALFS
+#    define SFS_RXC   RXC1
+#    define SFS_RXEN  RXEN1
+#    define SFS_TXC   TXC1
+#    define SFS_TXEN  TXEN1
+#    define SFS_UBRRH UBRR1H
+#    define SFS_UBRRL UBRR1L
+#    define SFS_UCSRA UCSR1A
+#    define SFS_UCSRB UCSR1B
+#    define SFS_UCSRC UCSR1C
+#    define SFS_UCSZ0 UCSZ10
+#    define SFS_UCSZ1 UCSZ11
+#    define SFS_UDR   UDR1
+#    define SFS_UDRIE UDRIE1
+#    define SFS_RXCIE RXCIE1
+#    define SFS_USART_UDRE_vect USART1_UDRE_vect
+#    define SFS_USART_RX_vect   USART1_RX_vect
+
+#endif
 #  endif
 
 #elif defined __AVR_ATmega48__ || defined __AVR_ATmega88__ || defined __AVR_ATmega168__

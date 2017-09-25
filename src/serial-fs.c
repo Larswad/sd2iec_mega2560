@@ -249,6 +249,114 @@ static uint8_t next_free_entry(uint8_t start) {
 	return cur;
 }
 
+// UART handling.
+
+#define CLOCK_PRESCALE_FACTOR 1
+static uint8_t txbuf[1 << CONFIG_UART_BUF_SHIFT];
+static volatile uint16_t uartReadIx;
+static volatile uint16_t uartWriteIx;
+
+#define DGRAM_MAGIC 0x56
+
+typedef enum {
+	miFileOpenReq,
+	miFileOpenResp,
+	miFileOpenRej,
+
+	miFileCloseReq,
+	miFileCloseResp,
+	miFileCloseRej,
+
+} SFSMsgId;
+
+
+typedef struct tagSFSDGram {
+	uint16_t ident; // must contain DGRAM_MAGIC (for re-sync. in case data transfer has errors).
+	uint8_t type;		// message content. For some messages the length field may be omitted since it is not needed.
+	uint8_t length;	// length remaining to read after this byte (exluding this). 0 means 0x100.
+	union {
+		struct {
+			uint8_t name[1];			// name of file to open.
+			// TODO: more to add here for this command.
+		} OpenReq;
+		struct {
+			uint8_t handle;			// a virtual handle identifier (the host side know how to map it to a real handle).
+			// TODO: more to add here for this command.
+		} OpenResp;
+		struct {							// used for any operation that contains a handle.
+			uint8_t handle;
+		} HandleOp;
+		struct {	// some operation went wrong
+			uint8_t error;			// The error that occurred. See SFS_ERROR definitions.
+		} OpError;
+	} U;
+} SFSDGramT;
+
+
+ISR(SFS_USART_UDRE_vect)
+{
+	if(uartReadIx == uartWriteIx)
+		return;
+
+	UDR = txbuf[uartReadIx];
+	uartReadIx = (uartReadIx + 1) bitand (sizeof(txbuf) - 1);
+	if(uartReadIx == uartWriteIx)
+		SFS_UCSRB and_eq compl _BV(SFS_UDRIE);
+}
+
+void uartWriteByte(char c)
+{
+	uint16_t t = (uartWriteIx + 1) bitand (sizeof(txbuf) - 1);
+#ifndef CONFIG_DEADLOCK_ME_HARDER // :-)
+	SFS_UCSRB and_eq compl _BV(SFS_UDRIE);   // turn off RS232 irq
+#else
+	while(t == read_idx);   // wait for free space
+#endif
+	txbuf[uartWriteIx] = c;
+	uartWriteIx = t;
+	//if (read_idx == write_idx) PORTD or_eq _BV(PD7);
+	SFS_UCSRB or_eq _BV(SFS_UDRIE);
+}
+
+uint8_t uartReadByte(void)
+{
+	loop_until_bit_is_set(SFS_UCSRA, SFS_RXC);
+	return SFS_UDR;
+}
+
+void uartFlush(void)
+{
+	while(uartReadIx not_eq uartWriteIx);
+}
+
+static void uartInit(void)
+{
+	// Configure the serial port for sfs channel.
+
+	//  SFS_UBRRH = (int)((double)F_CPU/(16.0*CONFIG_UART_BAUDRATE) - 1) >> 8;
+	//  SFS_UBRRL = (int)((double)F_CPU/(16.0*CONFIG_UART_BAUDRATE) - 1) bitand 0xff;
+	uint32_t clock = F_CPU;
+#ifdef CLOCK_PRESCALE_FACTOR
+	clock /= CLOCK_PRESCALE_FACTOR;
+#endif
+	uint16_t baudSetting = (clock / 4 / CONFIG_UART_BAUDRATE - 1) / 2;
+	SFS_UBRRH = baudSetting >> 8;
+	SFS_UBRRL = baudSetting bitand 0xff;
+	SFS_UCSRA = _BV(U2X0);
+
+	SFS_UCSRB = _BV(SFS_RXEN) | _BV(SFS_TXEN);
+	// I really don't like random #ifdefs in the code =(
+#if defined __AVR_ATmega32__
+	SFS_UCSRC = _BV(URSEL) | _BV(UCSZ1) | _BV(UCSZ0);
+#else
+	SFS_UCSRC = _BV(SFS_UCSZ1) | _BV(SFS_UCSZ0);
+#endif
+
+	//SFS_UCSRB or_eq _BV(SFS_UDRIE);
+	uartReadIx  = 0;
+	uartWriteIx = 0;
+}
+
 /* ------------------------------------------------------------------------- */
 /*  external API                                                             */
 /* ------------------------------------------------------------------------- */
