@@ -16,10 +16,10 @@ Deprecation notices
 ===================
 The following feature(s) will be removed in the next release:
 - M2I support
-   M2I support has been redundant since the introduction of transparent
-   P00 support. To continue to use your M2I-format software, convert
-   your files to P00 format (e.g. with m2itopc64.c) and set your device
-   to extension mode 2 (XE2).
+	 M2I support has been redundant since the introduction of transparent
+	 P00 support. To continue to use your M2I-format software, convert
+	 your files to P00 format (e.g. with m2itopc64.c) and set your device
+	 to extension mode 2 (XE2).
 
 Introduction:
 =============
@@ -48,403 +48,403 @@ instead and check the message you get for "sd2iec" and "uiec" instead.
 Supported commands:
 ===================
 - General notes:
-  Any command not listed below is currently not supported.
+	Any command not listed below is currently not supported.
 
 - Directory filters:
-  To show only directories, both =B (CMD-compatible) and =D can be used.
-  On a real Commodore drive D matches everything.
-  To include hidden files in the directory, use *=H - on a 1541 this doesn't
-  do anything. sd2iec marks hidden files with an H after the lock mark,
-  i.e. "PRG<H" or "PRG H".
+	To show only directories, both =B (CMD-compatible) and =D can be used.
+	On a real Commodore drive D matches everything.
+	To include hidden files in the directory, use *=H - on a 1541 this doesn't
+	do anything. sd2iec marks hidden files with an H after the lock mark,
+	i.e. "PRG<H" or "PRG H".
 
-  CMD-style "short" and "long" directory listings with timestamps are supported
-  ("$=T"), including timestamp filters. Please read a CMD manual for the syntax
-  until this file is updated.
+	CMD-style "short" and "long" directory listings with timestamps are supported
+	("$=T"), including timestamp filters. Please read a CMD manual for the syntax
+	until this file is updated.
 
 - Partition directory:
-  The CMD-style partition directory ($=P) is supported, including filters
-  ($=P:S*). All partitions are listed with type "FAT", although this could
-  change to "NAT" later for compatibility.
+	The CMD-style partition directory ($=P) is supported, including filters
+	($=P:S*). All partitions are listed with type "FAT", although this could
+	change to "NAT" later for compatibility.
 
 - CD/MD/RD:
-  Subdirectory access is compatible to the syntax used by the CMD drives,
-  although drive/partition numbers are completely ignored.
+	Subdirectory access is compatible to the syntax used by the CMD drives,
+	although drive/partition numbers are completely ignored.
 
-  Quick syntax overview:
-    CD:_         changes into the parent dir (_ is the left arrow on the C64)
-    CD_          dito
-    CD:foo       changes into foo
-    CD/foo       dito
-    CD//foo      changes into \foo
-    CD/foo/:bar  changes into foo\bar
-    CD/foo/bar   dito
+	Quick syntax overview:
+		CD:_         changes into the parent dir (_ is the left arrow on the C64)
+		CD_          dito
+		CD:foo       changes into foo
+		CD/foo       dito
+		CD//foo      changes into \foo
+		CD/foo/:bar  changes into foo\bar
+		CD/foo/bar   dito
 
-  You can use wildcards anywhere in the path. To change into an M2I or D64
-  image the image file must be the last component in the path, either
-  after a slash or a colon character.
+	You can use wildcards anywhere in the path. To change into an M2I or D64
+	image the image file must be the last component in the path, either
+	after a slash or a colon character.
 
-  MD uses a syntax similiar to CD and will create the directory listed
-  after the colon (:) relative to any directory listed before it.
+	MD uses a syntax similiar to CD and will create the directory listed
+	after the colon (:) relative to any directory listed before it.
 
-    MD/foo/:bar  creates bar in foo
-    MD//foo/:bar creates bar in \foo
+		MD/foo/:bar  creates bar in foo
+		MD//foo/:bar creates bar in \foo
 
-  RD can only remove subdirectories of the current directory.
+	RD can only remove subdirectories of the current directory.
 
-    RD:foo       deletes foo
+		RD:foo       deletes foo
 
-  CD is also used to mount/unmount image files. Just change into them
-  as if they were a directory and use CD:_ (left arrow on the C64) to leave.
-  Please note that image files are detected by file extension and file size
-  and there is no reliable way to see if a file is a valid image file.
+	CD is also used to mount/unmount image files. Just change into them
+	as if they were a directory and use CD:_ (left arrow on the C64) to leave.
+	Please note that image files are detected by file extension and file size
+	and there is no reliable way to see if a file is a valid image file.
 
 - CP, C<Shift-P>
-  This changes the current partition, see "Partitions" below for details.
+	This changes the current partition, see "Partitions" below for details.
 
 - C:
-  File copy command, should be CMD compatible. The syntax is
-   C[partition][path]:targetname=[[partition][path]:]sourcename[,[[p][p]:]sourcename...]
-  You can use this command to copy multiple files into a single target
-  file in which case all source files will be appended into the target
-  file. Parsing restarts for every source file name which means that
-  every source name is assumed to be relative to the current directory.
-  You can use wildcards in the source names, but only the first
-  file matching will be copied.
+	File copy command, should be CMD compatible. The syntax is
+	 C[partition][path]:targetname=[[partition][path]:]sourcename[,[[p][p]:]sourcename...]
+	You can use this command to copy multiple files into a single target
+	file in which case all source files will be appended into the target
+	file. Parsing restarts for every source file name which means that
+	every source name is assumed to be relative to the current directory.
+	You can use wildcards in the source names, but only the first
+	file matching will be copied.
 
-  Copying REL files should work, but isn't tested well. Mixing REL and
-  non-REL files in an append operation isn't supported.
+	Copying REL files should work, but isn't tested well. Mixing REL and
+	non-REL files in an append operation isn't supported.
 
 - D
-  Direct sector access, this is a command group introduced by sd2iec.
-  Some Commodore drives use D for disk duplication between two drives
-  in the same unit, an attempt to use that command with sd2iec should
-  result in an error message.
+	Direct sector access, this is a command group introduced by sd2iec.
+	Some Commodore drives use D for disk duplication between two drives
+	in the same unit, an attempt to use that command with sd2iec should
+	result in an error message.
 
-  D has three subcommands: DI (Info), DR (Read) and DW (Write).
-  Each of those commands requires a buffer to be opened (similiar
-  to U1/U2), but due to the larger sector size of the storage devices
-  used by sd2iec it needs to be a large buffer of size 2 (512 bytes)
-  or larger. The exception is the DI command with page set to 0,
-  its result will always fir into a standard 256 byte buffer.
-  If you try to use one of the commands with a buffer that is too
-  small a new error message is returned, "78,BUFFER TOO SMALL,00,00".
+	D has three subcommands: DI (Info), DR (Read) and DW (Write).
+	Each of those commands requires a buffer to be opened (similiar
+	to U1/U2), but due to the larger sector size of the storage devices
+	used by sd2iec it needs to be a large buffer of size 2 (512 bytes)
+	or larger. The exception is the DI command with page set to 0,
+	its result will always fir into a standard 256 byte buffer.
+	If you try to use one of the commands with a buffer that is too
+	small a new error message is returned, "78,BUFFER TOO SMALL,00,00".
 
-  In the following paragraphs the secondary address that was used
-  to open the buffer is called "bufchan".
+	In the following paragraphs the secondary address that was used
+	to open the buffer is called "bufchan".
 
-  - DI
-    In BASIC notation the command format is
-      "DI"+chr$(bufchan)+chr$(device)+chr$(page)
+	- DI
+		In BASIC notation the command format is
+			"DI"+chr$(bufchan)+chr$(device)+chr$(page)
 
-    "device" is the number of the physical device to be queried,
-    "page" the information page to be retrieved. Currently the
-    only page implemented is page 0 which will return the
-    following data structure:
-     1 byte : Number of valid bytes in this structure
-              This includes this byte and is meant to provide
-              backwards compatibility if this structure is extended
-              at a later time. New fields will always be added to
-              the end so old programs can still read the fields
-              they know about.
-     1 byte : Highest diskinfo page supported
-              Always 0 for now, will increase if more information
-              pages are added (planned: Complete ATA IDENTIFY
-              output for IDE and CSD for SD)
-     1 byte : Disk type
-              This field identifies the device type, currently
-              implemented values are:
-                0  IDE
-                2  SD
-                3  (reserved)
-     1 byte : Sector size divided by 256
-              This field holds the sector size of the storage device
-              divided by 256.
-     4 bytes: Number of sectors on the device 
-              A little-endian (same byte order as the 6502) value
-              of the number of sectors on the storage device.
-              If there is ever a need to increase the reported
-              capacity beyond 2TB (for 512 byte sectors) this
-              field will return 0 and a 64-bit value will be added
-              to this diskinfo page.
+		"device" is the number of the physical device to be queried,
+		"page" the information page to be retrieved. Currently the
+		only page implemented is page 0 which will return the
+		following data structure:
+		 1 byte : Number of valid bytes in this structure
+							This includes this byte and is meant to provide
+							backwards compatibility if this structure is extended
+							at a later time. New fields will always be added to
+							the end so old programs can still read the fields
+							they know about.
+		 1 byte : Highest diskinfo page supported
+							Always 0 for now, will increase if more information
+							pages are added (planned: Complete ATA IDENTIFY
+							output for IDE and CSD for SD)
+		 1 byte : Disk type
+							This field identifies the device type, currently
+							implemented values are:
+								0  IDE
+								2  SD
+								3  (reserved)
+		 1 byte : Sector size divided by 256
+							This field holds the sector size of the storage device
+							divided by 256.
+		 4 bytes: Number of sectors on the device
+							A little-endian (same byte order as the 6502) value
+							of the number of sectors on the storage device.
+							If there is ever a need to increase the reported
+							capacity beyond 2TB (for 512 byte sectors) this
+							field will return 0 and a 64-bit value will be added
+							to this diskinfo page.
 
-    If you want to determine if there is a device that responds
-    to a given number, read info page 0 for it. If there is no
-    device present that corresponds to the number you will see
-    a DRIVE NOT READY error on the error channel and the
-    "number of valid bytes" entry in the structure will be 0.
+		If you want to determine if there is a device that responds
+		to a given number, read info page 0 for it. If there is no
+		device present that corresponds to the number you will see
+		a DRIVE NOT READY error on the error channel and the
+		"number of valid bytes" entry in the structure will be 0.
 
-    Do not assume that device numbers are stable between releases
-    and do not assume that they are continuous either. To scan
-    for all present devices you should query at least 0-7 for now,
-    but this limit may increase in later releases.
+		Do not assume that device numbers are stable between releases
+		and do not assume that they are continuous either. To scan
+		for all present devices you should query at least 0-7 for now,
+		but this limit may increase in later releases.
 
-  - DR/DW
-    In BASIC notation the command format would be
-      "DR"+chr$(bufchan)+chr$(device)
-          +chr$(sector AND 255)
-          +chr$((sector/256) AND 255)
-          +chr$((sector/65536) AND 255)
-          +chr$((sector/16777216) AND 255)
-    (or "DW" instead of "DR)
-    but this won't work on the C64 because AND does not accept
-    parameters larger than 32767. The principle should be clear
-    though, the last four bytes are a 32 bit sector number in
-    little-endian byte order.
+	- DR/DW
+		In BASIC notation the command format would be
+			"DR"+chr$(bufchan)+chr$(device)
+					+chr$(sector AND 255)
+					+chr$((sector/256) AND 255)
+					+chr$((sector/65536) AND 255)
+					+chr$((sector/16777216) AND 255)
+		(or "DW" instead of "DR)
+		but this won't work on the C64 because AND does not accept
+		parameters larger than 32767. The principle should be clear
+		though, the last four bytes are a 32 bit sector number in
+		little-endian byte order.
 
-    DR reads the sector to the buffer, DW writes the contents
-    of the buffer to the sector. Both commands will update the
-    error channel if an error occurs, for DR the 20,READ ERROR
-    was chosen to represent read errors; for write problems
-    during DW it sets 25,WRITE ERROR for errors and 26,WRITE
-    PROTECT ON if the device is read-only.
+		DR reads the sector to the buffer, DW writes the contents
+		of the buffer to the sector. Both commands will update the
+		error channel if an error occurs, for DR the 20,READ ERROR
+		was chosen to represent read errors; for write problems
+		during DW it sets 25,WRITE ERROR for errors and 26,WRITE
+		PROTECT ON if the device is read-only.
 
 - G-P
-  Get partition info, see CMD FD/HD manual for details. The reported
-  information is partially faked, feedback is welcome.
+	Get partition info, see CMD FD/HD manual for details. The reported
+	information is partially faked, feedback is welcome.
 
 - P
-  Positioning doesn't just work for REL files but also for regular
-  files on a FAT partition. When used for regular files the format
-  is "P"+chr$(channel)+chr$(lo)+chr$(midlo)+chr$(midhi)+chr$(hi)
-  which will seek to the 0-based offset hi*2^24+midhi*65536+256*midlo+lo
-  in the file. If you send less than four bytes for the offset, the
-  missing bytes are assumed to be zero.
+	Positioning doesn't just work for REL files but also for regular
+	files on a FAT partition. When used for regular files the format
+	is "P"+chr$(channel)+chr$(lo)+chr$(midlo)+chr$(midhi)+chr$(hi)
+	which will seek to the 0-based offset hi*2^24+midhi*65536+256*midlo+lo
+	in the file. If you send less than four bytes for the offset, the
+	missing bytes are assumed to be zero.
 
 - N:
-  Format works only if a D64 image is already mounted. This command will
-  be ignored for DNP images unless the current directory is the root
-  directory of the DNP image.
+	Format works only if a D64 image is already mounted. This command will
+	be ignored for DNP images unless the current directory is the root
+	directory of the DNP image.
 
 - R
-  Renaming files should work the same as it does on CMD drives, although
-  the errors flagged for invalid characters in the name may differ.
+	Renaming files should work the same as it does on CMD drives, although
+	the errors flagged for invalid characters in the name may differ.
 
 - S:
-  Name matching is fully supported, directories are ignored.
-  Scratching of multiple files separated by , is also supported with no
-  limit to the number of files except for the maximum command line length
-  (usually 100 to 120 characters).
+	Name matching is fully supported, directories are ignored.
+	Scratching of multiple files separated by , is also supported with no
+	limit to the number of files except for the maximum command line length
+	(usually 100 to 120 characters).
 
 - T-R and T-W
-  If your hardware features RTC support the commands T-R (time read) and T-W
-  (time write) are available. If the RTC isn't present, both commands return
-  30,SYNTAX ERROR,00,00; if the RTC is present but not set correctly T-R will
-  return 31,SYNTAX ERROR,00,00.
+	If your hardware features RTC support the commands T-R (time read) and T-W
+	(time write) are available. If the RTC isn't present, both commands return
+	30,SYNTAX ERROR,00,00; if the RTC is present but not set correctly T-R will
+	return 31,SYNTAX ERROR,00,00.
 
-  Both commands expect a fourth character that specifies the time format
-  to be used. T-W expects that the new time follows that character
-  with no space or other characters inbetween. For the A, B and D
-  formats, the expected input format is exactly the same as returned
-  by T-R with the same format character; for the I format the day of
-  week is ignored and calculated based on the date instead.
+	Both commands expect a fourth character that specifies the time format
+	to be used. T-W expects that the new time follows that character
+	with no space or other characters inbetween. For the A, B and D
+	formats, the expected input format is exactly the same as returned
+	by T-R with the same format character; for the I format the day of
+	week is ignored and calculated based on the date instead.
 
-  The possible formats are:
-   - "A"SCII: "SUN. 01/20/08 01:23:45 PM"+CHR$(13)
-      The day-of-week string can be any of "SUN.", "MON.", "TUES", "WED.",
-      "THUR", "FRI.", "SAT.". The year field is modulo 100.
+	The possible formats are:
+	 - "A"SCII: "SUN. 01/20/08 01:23:45 PM"+CHR$(13)
+			The day-of-week string can be any of "SUN.", "MON.", "TUES", "WED.",
+			"THUR", "FRI.", "SAT.". The year field is modulo 100.
 
-   - "B"CD or "D"ecimal:
-     Both these formats use 9 bytes to specify the time. For BCD everything
-     is BCD-encoded, for Decimal the numbers are sent/parsed as-is.
-      Byte 0: Day of the week (0 for sunday)
-           1: Year (modulo 100 for BCD; -1900 for Decimal, i.e. 108 for 2008)
-           2: Month (1-based)
-           3: Day (1-based)
-           4: Hour   (1-12)
-           5: Minute (0-59)
-           6: Second (0-59)
-           7: AM/PM-Flag (0 is AM, everything else is PM)
-           8: CHR$(13)
+	 - "B"CD or "D"ecimal:
+		 Both these formats use 9 bytes to specify the time. For BCD everything
+		 is BCD-encoded, for Decimal the numbers are sent/parsed as-is.
+			Byte 0: Day of the week (0 for sunday)
+					 1: Year (modulo 100 for BCD; -1900 for Decimal, i.e. 108 for 2008)
+					 2: Month (1-based)
+					 3: Day (1-based)
+					 4: Hour   (1-12)
+					 5: Minute (0-59)
+					 6: Second (0-59)
+					 7: AM/PM-Flag (0 is AM, everything else is PM)
+					 8: CHR$(13)
 
-      When the time is set a year less than 80 is interpreted as 20xx.
+			When the time is set a year less than 80 is interpreted as 20xx.
 
-   - "I"SO 8601 subset: "2008-01-20T13:23:45 SUN"+CHR$(13)
-     This format complies with ISO 8601 and adds a day of week
-     abbreviation using the same table as the A format, but omitting
-     the fourth character. When it is used with T-W, anything beyond
-     the seconds field is ignored and the day of week is calculated
-     based on the specified date. The year must always be specified
-     including the century if this format is used to set the time.
-     To save space, sd2iec only accepts this particular date/time
-     representation when setting the time with T-WI and no other ISo
-     8601-compliant representation.
+	 - "I"SO 8601 subset: "2008-01-20T13:23:45 SUN"+CHR$(13)
+		 This format complies with ISO 8601 and adds a day of week
+		 abbreviation using the same table as the A format, but omitting
+		 the fourth character. When it is used with T-W, anything beyond
+		 the seconds field is ignored and the day of week is calculated
+		 based on the specified date. The year must always be specified
+		 including the century if this format is used to set the time.
+		 To save space, sd2iec only accepts this particular date/time
+		 representation when setting the time with T-WI and no other ISo
+		 8601-compliant representation.
 
 - U0
-  Device address changing with "U0>"+chr$(new address) is supported,
-  other U0 commands are currently not implemented.
+	Device address changing with "U0>"+chr$(new address) is supported,
+	other U0 commands are currently not implemented.
 
 - U1/U2/B-R/B-W
-  Block reading and writing is fully supported while a D64 image is mounted.
+	Block reading and writing is fully supported while a D64 image is mounted.
 
 - B-P
-  Supported, not checked against the original rom at all.
+	Supported, not checked against the original rom at all.
 
 - UI+/UI-
-  Switching the slightly faster bus protocol for the VC20 on and off works,
-  it hasn't been tested much though.
+	Switching the slightly faster bus protocol for the VC20 on and off works,
+	it hasn't been tested much though.
 
 - UI/UJ
-  Soft/Hard reset - UI just sets the "73,..." message on the error channel,
-  UJ closes all active buffers but doesn't reset the current directory,
-  mounted image, swap list or anything else.
+	Soft/Hard reset - UI just sets the "73,..." message on the error channel,
+	UJ closes all active buffers but doesn't reset the current directory,
+	mounted image, swap list or anything else.
 
 - U<Shift-J>
-  Real hard reset - this command causes a restart of the AVR processor
-  (skipping the bootloader if installed). <Shift-J> is character code 202.
+	Real hard reset - this command causes a restart of the AVR processor
+	(skipping the bootloader if installed). <Shift-J> is character code 202.
 
 - X: Extended commands. If you use JiffyDOS, you can send them by using
-  @"X..." - without quotes you'll just receive an error.
+	@"X..." - without quotes you'll just receive an error.
 
-  - XEnum    Sets the "file extension mode". This setting controls if
-             files on FAT are written with an x00 header and extension or not.
-             Possible values for num are:
-               0: Never write x00 format files.
-               1: Write x00 format files for SEQ/USR/REL, but not for PRG
-               2: Always write x00 format files.
-               3: Use SEQ/USR/REL file extensions, no x00 header
-               4: Same as 3, but also for PRG
-             If you set mode 3 or 4, extension hiding is automatically enabled.
-             This setting can be saved in the EEPROM using XW, the default
-             value is 1.
+	- XEnum    Sets the "file extension mode". This setting controls if
+						 files on FAT are written with an x00 header and extension or not.
+						 Possible values for num are:
+							 0: Never write x00 format files.
+							 1: Write x00 format files for SEQ/USR/REL, but not for PRG
+							 2: Always write x00 format files.
+							 3: Use SEQ/USR/REL file extensions, no x00 header
+							 4: Same as 3, but also for PRG
+						 If you set mode 3 or 4, extension hiding is automatically enabled.
+						 This setting can be saved in the EEPROM using XW, the default
+						 value is 1.
 
-             For compatibility with existing programs that write D64 files,
-             PRG files that have D64, D41, D71, D81, DNP or M2I as an extension
-             will always be written without an x00 header and without
-             any additional PRG file extension.
+						 For compatibility with existing programs that write D64 files,
+						 PRG files that have D64, D41, D71, D81, DNP or M2I as an extension
+						 will always be written without an x00 header and without
+						 any additional PRG file extension.
 
-  - XE+/XE-  Enable/disable extension hiding. If enabled, files in FAT with
-             a PRG/SEQ/USR/REL extension will have their extension removed
-             and the file type changed to the type specified by the file
-             extension - e.g. APPLICATION.PRG will become a PRG file named
-             "APPLICATION", "README.SEQ" will become a SEQ file named "README".
-             This flag can be saved in the EEPROM using XW, the default
-             value is disabled (-).
+	- XE+/XE-  Enable/disable extension hiding. If enabled, files in FAT with
+						 a PRG/SEQ/USR/REL extension will have their extension removed
+						 and the file type changed to the type specified by the file
+						 extension - e.g. APPLICATION.PRG will become a PRG file named
+						 "APPLICATION", "README.SEQ" will become a SEQ file named "README".
+						 This flag can be saved in the EEPROM using XW, the default
+						 value is disabled (-).
 
-  - XInum    Switches the display mode for mountables files (i.e. disk images
-             and M2I). num can be 0, in which case the file will be shown
-             with its normal type in the directory or 1 which will show all
-             mountable files as DIRectory entries (but they can still be
-             accessed as files too) or 2 in which case they will show up
-             twice - once with its normal type and once as directory.
-             The default value is 0 and this setting can be stored
-             permanently using XW.
+	- XInum    Switches the display mode for mountables files (i.e. disk images
+						 and M2I). num can be 0, in which case the file will be shown
+						 with its normal type in the directory or 1 which will show all
+						 mountable files as DIRectory entries (but they can still be
+						 accessed as files too) or 2 in which case they will show up
+						 twice - once with its normal type and once as directory.
+						 The default value is 0 and this setting can be stored
+						 permanently using XW.
 
-             It may be useful to set it to 1 or 2 when using software that
-             was originally written for CMD devices and which wouldn't
-             recognize disk images/M2I files as mountable on its own.
-             However, due to limitations of the current implementation of
-             the CD command such software may still fail to mount a disk
-             image with this option enabled.
+						 It may be useful to set it to 1 or 2 when using software that
+						 was originally written for CMD devices and which wouldn't
+						 recognize disk images/M2I files as mountable on its own.
+						 However, due to limitations of the current implementation of
+						 the CD command such software may still fail to mount a disk
+						 image with this option enabled.
 
-  - X*+/X*-  Enable/disable 1581-style * matching. If enabled, characters
-             after a * will be matched against the end of the file name.
-             If disabled, any characters after a * will be ignored.
-             This flag can be saved in the EEPROM using XW, the default value
-             is enabled (+).
+	- X*+/X*-  Enable/disable 1581-style * matching. If enabled, characters
+						 after a * will be matched against the end of the file name.
+						 If disabled, any characters after a * will be ignored.
+						 This flag can be saved in the EEPROM using XW, the default value
+						 is enabled (+).
 
-  - XDdrv=val Configure drives.  On ATA-based units or units with multiple
-             drive types, this command can be used to enable or reorder
-             the drives.  drv is the drive slot (0-7), while val is one
-             of:
-                0: Master ATA device
-                1: Slave ATA device
-                4: Primary SD/MMC device
-                5: Secondary SD/MMC device
-                6: (reserved)
-               15: no device
+	- XDdrv=val Configure drives.  On ATA-based units or units with multiple
+						 drive types, this command can be used to enable or reorder
+						 the drives.  drv is the drive slot (0-7), while val is one
+						 of:
+								0: Master ATA device
+								1: Slave ATA device
+								4: Primary SD/MMC device
+								5: Secondary SD/MMC device
+								6: (reserved)
+							 15: no device
 
-             Note that only devices supported by the specific hardware
-             can be selected.  Unsupported device types will return an
-             error if requested.  Also, note that you cannot select a device
-             in multiple drive slots.  Finally, while it is possible to
-             re-order ATA devices using this functionality, it is strongly
-             discouraged.  Use the master/slave jumpers on the ATA devices
-             instead.  To reset the drive configuration, set all drive slots
-             to "no device".  This value can be permanently saved in the
-             EEPROM using XW.
+						 Note that only devices supported by the specific hardware
+						 can be selected.  Unsupported device types will return an
+						 error if requested.  Also, note that you cannot select a device
+						 in multiple drive slots.  Finally, while it is possible to
+						 re-order ATA devices using this functionality, it is strongly
+						 discouraged.  Use the master/slave jumpers on the ATA devices
+						 instead.  To reset the drive configuration, set all drive slots
+						 to "no device".  This value can be permanently saved in the
+						 EEPROM using XW.
 
-    XD?      View the current drive configuration.  Example result:
-             "03,D:00=04:01=00:02=01,10,01".  The track indicates the
-             current device address, while the sector indicates extended
-             drive configuration status information.
+		XD?      View the current drive configuration.  Example result:
+						 "03,D:00=04:01=00:02=01,10,01".  The track indicates the
+						 current device address, while the sector indicates extended
+						 drive configuration status information.
 
-  - X        X without any following characters reports the current state
-             of all extended parameters via the error channel, similiar
-             to DolphinDOS. Example result: "03,J-:C152:E01+:B+:*+,08,00"
-             The track indicates the current device address.
+	- X        X without any following characters reports the current state
+						 of all extended parameters via the error channel, similiar
+						 to DolphinDOS. Example result: "03,J-:C152:E01+:B+:*+,08,00"
+						 The track indicates the current device address.
 
-  - XS:name  Set up a swap list - see "Changing Disk Images" below.
-    XS       Disable swap list
+	- XS:name  Set up a swap list - see "Changing Disk Images" below.
+		XS       Disable swap list
 
-  - XR:name  Set the file used for file-based M-R emulation.
-    XR       Disable file-based M-R emulation.
-             See "M-R, M-W, M-E" below. This setting can be
-             permanently saved in the EEPROM using XW.
+	- XR:name  Set the file used for file-based M-R emulation.
+		XR       Disable file-based M-R emulation.
+						 See "M-R, M-W, M-E" below. This setting can be
+						 permanently saved in the EEPROM using XW.
 
-  - XW       Store configuration to EEPROM
-             This commands stores the current configuration in the EEPROM.
-             It will automatically be read when the AVR is reset, so
-             any changes you made will persist even after turning off
-             the hardware.
+	- XW       Store configuration to EEPROM
+						 This commands stores the current configuration in the EEPROM.
+						 It will automatically be read when the AVR is reset, so
+						 any changes you made will persist even after turning off
+						 the hardware.
 
-             The stored configuration include the extension mode,
-             drive configuration and the current device address.
-             If you have changed the device address by software,
-             sd2iec will power up with that address unless
-             you have changed the device address jumpers (if available) to
-             a different setting than the one active at the time the
-             configuration was saved. You can think of this feature as
-             changing the meaning of one specific setting of the jumpers
-             to a different address if this sounds logical enough to you.
+						 The stored configuration include the extension mode,
+						 drive configuration and the current device address.
+						 If you have changed the device address by software,
+						 sd2iec will power up with that address unless
+						 you have changed the device address jumpers (if available) to
+						 a different setting than the one active at the time the
+						 configuration was saved. You can think of this feature as
+						 changing the meaning of one specific setting of the jumpers
+						 to a different address if this sounds logical enough to you.
 
-             The "hardware overrides software overrides hardware" priority
-             was chosen to allow accessing sd2iec even when it is soft-
-             configured for a device number that is already taken by
-             another device on the bus without having to remove that
-             device to reconfigure sd2iec (e.g. when using a C128D).
+						 The "hardware overrides software overrides hardware" priority
+						 was chosen to allow accessing sd2iec even when it is soft-
+						 configured for a device number that is already taken by
+						 another device on the bus without having to remove that
+						 device to reconfigure sd2iec (e.g. when using a C128D).
 
-  - X?       Extended version query
-             This commands returns the extended version string which
-             consists of the version, the processor type set at build time
-             and the suffix of the configuration file (usually corresponds
-             to the short name of the hardware sd2iec was compiled for).
+	- X?       Extended version query
+						 This commands returns the extended version string which
+						 consists of the version, the processor type set at build time
+						 and the suffix of the configuration file (usually corresponds
+						 to the short name of the hardware sd2iec was compiled for).
 
 - M-R, M-W, M-E
-  When no file is set up using XR, M-R will check a small internal
-  table of common drive-detection addresses and return data that
-  forces most of the supported fast loaders into a compatible mode
-  (e.g. 1541 mode for Dreamload and ULoad Model 3, disabled fastloader
-  for Action Replay 6). If the address is not recognized, more-or-less
-  random data will be returned.
+	When no file is set up using XR, M-R will check a small internal
+	table of common drive-detection addresses and return data that
+	forces most of the supported fast loaders into a compatible mode
+	(e.g. 1541 mode for Dreamload and ULoad Model 3, disabled fastloader
+	for Action Replay 6). If the address is not recognized, more-or-less
+	random data will be returned.
 
-  Unfortunately GEOS reads rather large parts of the drive rom using
-  M-R to detect the drive, which cannot be reasonably added into the
-  internal table. To enable the GEOS drive detection to work properly
-  with sd2iec and to allow switching between 1541/71/81 modes,
-  file-based M-R emulation has been implemented. If a file has been
-  set up as M-R data source using the XR command, its contents will be
-  returned for M-R commands that try to read an address in the range
-  of $8000-$ffff. The rom file should be a copy of the rom contents of
-  a 1541/71/81 drive (any headers will be skipped automatically), its
-  name must be 16 characters or less. When an M-R command is received,
-  the file will be searched in three locations on the storage medium:
-    1) in the current directory of the current partition
-    2) in the root directory of the current partition
-    3) in the root directory of the first partition
+	Unfortunately GEOS reads rather large parts of the drive rom using
+	M-R to detect the drive, which cannot be reasonably added into the
+	internal table. To enable the GEOS drive detection to work properly
+	with sd2iec and to allow switching between 1541/71/81 modes,
+	file-based M-R emulation has been implemented. If a file has been
+	set up as M-R data source using the XR command, its contents will be
+	returned for M-R commands that try to read an address in the range
+	of $8000-$ffff. The rom file should be a copy of the rom contents of
+	a 1541/71/81 drive (any headers will be skipped automatically), its
+	name must be 16 characters or less. When an M-R command is received,
+	the file will be searched in three locations on the storage medium:
+		1) in the current directory of the current partition
+		2) in the root directory of the current partition
+		3) in the root directory of the first partition
 
-  The internal emulation table will be used if the file wasn't found
-  in any of those locations or an error occured while reading
-  it. Please be aware that the rom file is ONLY used for M-R
-  commands. Except for some very specific situations where drive
-  detection fails (e.g. GEOS) it will probably decrease compatibility
-  of sd2iec because most of the implemented fast loaders will only
-  recognize the 1541 variation of the loader.
+	The internal emulation table will be used if the file wasn't found
+	in any of those locations or an error occured while reading
+	it. Please be aware that the rom file is ONLY used for M-R
+	commands. Except for some very specific situations where drive
+	detection fails (e.g. GEOS) it will probably decrease compatibility
+	of sd2iec because most of the implemented fast loaders will only
+	recognize the 1541 variation of the loader.
 
-  Memory writing knows about the address used for changing the device
-  address on a 1541 and will change the address of sd2iec to the
-  requested value. It will also check if the transmitted data
-  corresponds to any of the known software fastloaders so the correct
-  emulation code can be used when M-E is called.
+	Memory writing knows about the address used for changing the device
+	address on a 1541 and will change the address of sd2iec to the
+	requested value. It will also check if the transmitted data
+	corresponds to any of the known software fastloaders so the correct
+	emulation code can be used when M-E is called.
 
 Large buffers:
 ==============
@@ -542,136 +542,136 @@ for partitions 1 to 9.
 Software fastloaders:
 =====================
 Note: Using sd2iec without an external crystal or similiar precise
-      clock source is not a supported configuration.
-      If you try that anyway, be prepared to suffer from random
-      data corruption. You have been warned.
-      Some fastloader implementations will actively refuse to work
-      if you use an unsuitable clock source.
+			clock source is not a supported configuration.
+			If you try that anyway, be prepared to suffer from random
+			data corruption. You have been warned.
+			Some fastloader implementations will actively refuse to work
+			if you use an unsuitable clock source.
 
-  Turbodisk
-  ---------
-  Turbodisk is detected by the CRC of its 493 byte long floppy code and
-  the M-E address 0x0303. The same code seems to be used under various names,
-  among them "Turbodisk" (both 2.1 and 2.2) and "Fast-Load".
-  It is not known if there is an NTSC-compatible version of this fastloader.
+	Turbodisk
+	---------
+	Turbodisk is detected by the CRC of its 493 byte long floppy code and
+	the M-E address 0x0303. The same code seems to be used under various names,
+	among them "Turbodisk" (both 2.1 and 2.2) and "Fast-Load".
+	It is not known if there is an NTSC-compatible version of this fastloader.
 
-  Final Cartridge III
-  -------------------
-  Both the fast loader and the fast saver of Final Cartridge III are supported.
-  The FC3 is both PAL and NTSC compatible.
+	Final Cartridge III
+	-------------------
+	Both the fast loader and the fast saver of Final Cartridge III are supported.
+	The FC3 is both PAL and NTSC compatible.
 
-  The slightly different fastloader used for files freezed with the FC3
-  is also supported.
+	The slightly different fastloader used for files freezed with the FC3
+	is also supported.
 
-  EXOS V3 and The Beast System
-  ----------------------------
-  Both supported, the loader used by these kernals is very similiar to
-  the FC3 fast loader.
+	EXOS V3 and The Beast System
+	----------------------------
+	Both supported, the loader used by these kernals is very similiar to
+	the FC3 fast loader.
 
-  Action Replay 6
-  ---------------
-  The AR6 reads a byte from the drive rom to check which fastloader it should
-  use. When file-based M-R emulation is disabled sd2iec returns a value that
-  should force the cartridge to use the standard kernal loader instead of its
-  many fastloaders/-savers. This means that accessind sd2iec with
-  file-based rom emulation enabled will fail because the cartridge
-  will enable fastloader that will probably not be recognized.
+	Action Replay 6
+	---------------
+	The AR6 reads a byte from the drive rom to check which fastloader it should
+	use. When file-based M-R emulation is disabled sd2iec returns a value that
+	should force the cartridge to use the standard kernal loader instead of its
+	many fastloaders/-savers. This means that accessind sd2iec with
+	file-based rom emulation enabled will fail because the cartridge
+	will enable fastloader that will probably not be recognized.
 
-  Currently the only recognized AR6 fastloader and fastsaver are the
-  ones for the 1581.
+	Currently the only recognized AR6 fastloader and fastsaver are the
+	ones for the 1581.
 
-  Dreamload
-  ---------
-  Dreamload uses direct track/sector access, so it is only supported
-  on D64 or similiar disk image formats. As sd2iec has to wait for commands
-  from the C64 constantly the disk change buttons may become unresponsive,
-  try multiple times if you need to. Dreamload is a "captive" fastloader,
-  sd2iec stay in Dreamload mode until it receives a "quit loader" command
-  from the C64. To force sd2iec to resume normal operation, hold the disk
-  change button until the red LED turns on (just like sleep mode).
+	Dreamload
+	---------
+	Dreamload uses direct track/sector access, so it is only supported
+	on D64 or similiar disk image formats. As sd2iec has to wait for commands
+	from the C64 constantly the disk change buttons may become unresponsive,
+	try multiple times if you need to. Dreamload is a "captive" fastloader,
+	sd2iec stay in Dreamload mode until it receives a "quit loader" command
+	from the C64. To force sd2iec to resume normal operation, hold the disk
+	change button until the red LED turns on (just like sleep mode).
 
-  Please note that Dreamload does not work with more than one device on the
-  serial bus due to the way it uses the ATN line.
+	Please note that Dreamload does not work with more than one device on the
+	serial bus due to the way it uses the ATN line.
 
-  ULoad Model 3
-  -------------
-  ULoad Model 3 uses direct track/sector access, so it is only supported
-  on D64 or similiar disk image formats. Currently there is exactly one
-  supported variant of ULoad Model 3, which is the one used by
-  Ultima 3 Gold. There are no other known variants at this time, but
-  this may change.
+	ULoad Model 3
+	-------------
+	ULoad Model 3 uses direct track/sector access, so it is only supported
+	on D64 or similiar disk image formats. Currently there is exactly one
+	supported variant of ULoad Model 3, which is the one used by
+	Ultima 3 Gold. There are no other known variants at this time, but
+	this may change.
 
-  If you are a coder and want to use ULoad Model 3 in your own program,
-  either configure it to produce the same drive code as U3Gold or
-  contact me so we can work out a way to trigger ULoad M3 support
-  without uploading any drive code at all.
+	If you are a coder and want to use ULoad Model 3 in your own program,
+	either configure it to produce the same drive code as U3Gold or
+	contact me so we can work out a way to trigger ULoad M3 support
+	without uploading any drive code at all.
 
-  G.I. Joe Loader
-  ---------------
-  Said to be the most-ripped IRQ loader. Unfortunately this is a
-  "captive" fastloader similiar to dreamload (but not restricted
-  to disk images because it is file name-based) and there is no
-  reliable way to detect if the computer has been reset to switch
-  back to the standard protocol. To exit this loader, hold down
-  the disk change button until the red LED turns on, just like
-  sleep mode.
+	G.I. Joe Loader
+	---------------
+	Said to be the most-ripped IRQ loader. Unfortunately this is a
+	"captive" fastloader similiar to dreamload (but not restricted
+	to disk images because it is file name-based) and there is no
+	reliable way to detect if the computer has been reset to switch
+	back to the standard protocol. To exit this loader, hold down
+	the disk change button until the red LED turns on, just like
+	sleep mode.
 
-  Epyx FastLoad Cartridge
-  -----------------------
-  ONLY the fast loader from this cartridge is supported, no
-  disk editor/copier/whatever functions.
+	Epyx FastLoad Cartridge
+	-----------------------
+	ONLY the fast loader from this cartridge is supported, no
+	disk editor/copier/whatever functions.
 
-  GEOS
-  ----
-  GEOS 2.0 can be booted from D64 images made from original disks
-  as well as D41/71/81 images created using geoMakeBoot (make sure to
-  Configure the system for a 1541/1571/1581 before using geoMakeBoot).
-  When file-based M-R emulation is disabled, GEOS may detect sd2iec as
-  a 1541 or 1581, depending on the version of Configure used. This may
-  cause the system to fail to boot, e.g. if sd2iec is detected as a 1581
-  while booting from a D64 disk image. It is recommended to set up file-
-  based M-R emulation when using GEOS to avoid these problems.
+	GEOS
+	----
+	GEOS 2.0 can be booted from D64 images made from original disks
+	as well as D41/71/81 images created using geoMakeBoot (make sure to
+	Configure the system for a 1541/1571/1581 before using geoMakeBoot).
+	When file-based M-R emulation is disabled, GEOS may detect sd2iec as
+	a 1541 or 1581, depending on the version of Configure used. This may
+	cause the system to fail to boot, e.g. if sd2iec is detected as a 1581
+	while booting from a D64 disk image. It is recommended to set up file-
+	based M-R emulation when using GEOS to avoid these problems.
 
-  GEOS 1.3 may or may not work - it boots, but wasn't tested in-depth.
-  Gateway seems to work but was not tested beyond booting it from a D64
-  image.
+	GEOS 1.3 may or may not work - it boots, but wasn't tested in-depth.
+	Gateway seems to work but was not tested beyond booting it from a D64
+	image.
 
-  Using the buttons for changing the current disk image is supported,
-  but do make sure that you only access disk images that the drive
-  type that is selected in GEOS would support (i.e. D64 for a 1541,
-  D64/D71 for a 1571 and D81 for a 1581).
+	Using the buttons for changing the current disk image is supported,
+	but do make sure that you only access disk images that the drive
+	type that is selected in GEOS would support (i.e. D64 for a 1541,
+	D64/D71 for a 1571 and D81 for a 1581).
 
-  Wheels
-  ------
-  Wheels can be booted from any disk image type it supports. The correct
-  rom emulation file (XR) MUST be set, especially for CMD HD emulation.
+	Wheels
+	------
+	Wheels can be booted from any disk image type it supports. The correct
+	rom emulation file (XR) MUST be set, especially for CMD HD emulation.
 
-  Do not use the disk change feature to change disk images when HD emulation
-  is in use - Wheels does not check for disk changes on that drive!
-  For other drive types the restrictions on disk image type of GEOS also
-  apply to Wheels.
+	Do not use the disk change feature to change disk images when HD emulation
+	is in use - Wheels does not check for disk changes on that drive!
+	For other drive types the restrictions on disk image type of GEOS also
+	apply to Wheels.
 
-  ELoad Version 1
-  ---------------
-  This loader was made for EasyProg but may also be used in other programs.
-  It detects and supports the sd2iec natively.
+	ELoad Version 1
+	---------------
+	This loader was made for EasyProg but may also be used in other programs.
+	It detects and supports the sd2iec natively.
 
-  Maniac Mansion
-  --------------
-  Original versions of Maniac Mansion have an additional copy protection
-  check that is not supported by sd2iec. Please use a cracked version
-  instead - the ones from Gamebase 64 seem to work. Please remember to
-  add an empty D64 for the save/load disk to your swaplist if you want
-  to save your game.
+	Maniac Mansion
+	--------------
+	Original versions of Maniac Mansion have an additional copy protection
+	check that is not supported by sd2iec. Please use a cracked version
+	instead - the ones from Gamebase 64 seem to work. Please remember to
+	add an empty D64 for the save/load disk to your swaplist if you want
+	to save your game.
 
-  The game uses a captive loader that unfortunately cannot detect if it
-  should exit automatically - to resume normal operation, you need to
-  hold down the NEXT button until the red LED turns on.
+	The game uses a captive loader that unfortunately cannot detect if it
+	should exit automatically - to resume normal operation, you need to
+	hold down the NEXT button until the red LED turns on.
 
-  Zak McKracken
-  -------------
-  Same as Maniac Mansion, but this game only has a code list protection,
-  so images of original disks should work fine.
+	Zak McKracken
+	-------------
+	Same as Maniac Mansion, but this game only has a code list protection,
+	so images of original disks should work fine.
 
 JiffyDOS:
 =========
@@ -713,7 +713,7 @@ of this document.
 M2I files:
 ==========
 NOTICE: Support for M2I files will be removed in the next release, see
-        the deprecation notices at the top of this file for advice.
+				the deprecation notices at the top of this file for advice.
 
 M2I files are fully supported. sd2iec supports SEQ and USR files in this
 format in addition to PRG and DEL which were already implemented in MMC2IEC.
@@ -742,25 +742,25 @@ add it yourself. In all cases the buttons need to connect the given
 pins of the chip to ground.
 
 - For the original MMC2IEC ("larsp"):
-  The NEXT button is in input PA4, the PREV button is on PA5.
-  PA4 is pin 36 on the DIL version of the controller or pin 33 on the
-  surface-mount version. PA5 is pin 35 on DIL, pin 32 on SMD.
+	The NEXT button is in input PA4, the PREV button is on PA5.
+	PA4 is pin 36 on the DIL version of the controller or pin 33 on the
+	surface-mount version. PA5 is pin 35 on DIL, pin 32 on SMD.
 
 - For Shadowolf's MMC2IEC 1.x PCBs ("sw1"):
-  The NExT button is on input PC4, the PREV button is on PC3.
-  PC4 is pin 26 on the DIL version of the controller or pin 23 on the
-  surface-mount version. PC3 is pin 25 on DIL, pin 22 on SMD.
+	The NExT button is on input PC4, the PREV button is on PC3.
+	PC4 is pin 26 on the DIL version of the controller or pin 23 on the
+	surface-mount version. PC3 is pin 25 on DIL, pin 22 on SMD.
 
 - For Shadowolf's sd2iec 1.x PCBs ("sw2"):
-  The two required pins are available on the pin header which runs
-  parallel to the long side of the board. In the documentation of the
-  board, the NEXT button is named "DISKSWITCH", the PREV button is
-  named "RESERVE".
+	The two required pins are available on the pin header which runs
+	parallel to the long side of the board. In the documentation of the
+	board, the NEXT button is named "DISKSWITCH", the PREV button is
+	named "RESERVE".
 
 - Any other circuit without disk change pin on a convenient connector
-  somewhere and no button dedicated to that function: Please check
-  with the supplier of the board and read config.h in the sources
-  to find out how to connect it.
+	somewhere and no button dedicated to that function: Please check
+	with the supplier of the board and read config.h in the sources
+	to find out how to connect it.
 
 To use this functionality, you can either create a swap list file
 yourself or let sd2iec create one for you.
@@ -887,22 +887,22 @@ NEXT button once.
 Other important notes:
 ======================
 - When you hold down the disk change (forward) button during power
-  on the software will use default values instead of those stored
-  in the EEPROM.
+	on the software will use default values instead of those stored
+	in the EEPROM.
 - File overwrite (@foo) is implemented by deleting the file first.
 - File sizes in the directory are in blocks (of 254 bytes), but
-  the blocks free message actually reports free clusters. It is
-  a compromise of compatibility, accuracy and code size.
+	the blocks free message actually reports free clusters. It is
+	a compromise of compatibility, accuracy and code size.
 - If known, the low byte of the next line link pointer of the directory
-  listing will be set to (filesize MOD 254)+2, so you can calculate the
-  true size of the file if required. The 2 is added so it can never be
-  mistaken for an end marker (0) or for the default value (1, used by at
-  least the 1541 and 1571 disk drives).
+	listing will be set to (filesize MOD 254)+2, so you can calculate the
+	true size of the file if required. The 2 is added so it can never be
+	mistaken for an end marker (0) or for the default value (1, used by at
+	least the 1541 and 1571 disk drives).
 - If your hardware supports more than one SD card, changing either one
-  will reset the current partition to 1 and the current directory of
-  all partitions to the root drive. Doing this just for the card that
-  was changed would cause lots of problems if the number of partitions
-  on the previous and the newly inserted cards are different.
+	will reset the current partition to 1 and the current directory of
+	all partitions to the root drive. Doing this just for the card that
+	was changed would cause lots of problems if the number of partitions
+	on the previous and the newly inserted cards are different.
 
 Compilation notes:
 ==================
@@ -917,3 +917,33 @@ An example configuration file named "config-example" is provided with
 the source code, as well as abridged files corresponding to the
 release binaries. If you want to compile sd2iec for a custom hardware
 you may have to edit config.h too to change the port definitions.
+
+MEGA2560 / Arduino considerations
+---------------------------------
+A separate configuration has been added for the mega2560, this enables the Arduino community to easily
+use sd2iec with a regular Arduino or clone together with an sd-card shield.
+To avoid flashing the arduino bootloader (which is not really needed or recommended since the stock one
+works just fine) and make things a little easier a separate flash_arduino.sh script has been added
+in the scripts folder. This script assumes by default to use the avrdude tool in the avr toolchain, but the
+path's can be easily changed to point out the toolchain root in the Arduino SDK.
+The script expects the board to show up on /dev/ttyACM0. It is possible that root access is required.
+
+The default assumption of the MEGA2560 is that no LEDs or extra push-buttons has been added to the board.
+This however can be easily added by simply changing the commented-out suggested GPIO's in the archconfig.h
+for this purpose. That way, drive activity and error LED's can be functional, same goes for a floppy switching
+button for M2I or D64 disks.
+
+For the SD-card shield it should be connected to the Arduino ICSP header (located at the middle of the board).
+The shield also expects GND, probably 3V and also 5V to be connected.
+
+Some boards also expects the chip select pin (SS) to be connected. There is one special case added for that
+in the config2560 already, but there are probably other shield out there that expects a different pin for that.
+
+* The IEC wires can be changed, but the default ones for mega2560 are recommended to use:
+SRQ goes to PD0 (marked 21)
+CLOCK goes to PD1 (marked 20)
+DATA goes to PD2 (marked 19)
+ATN goes to PD3 (marked 18).
+GND goes to any GND (you can find multiple grounds on the board, there's one located next to pin #53).
+The RESET pin can be skipped, sd2iec doesn't need this for full operation.
+
