@@ -67,6 +67,9 @@ CONFIG_LOADER_N0SDOS=y
 # This MAY be dependant on crystal individuality.
 CONFIG_MEGA_CYCLE_ADJUST=y
 
+# Define this if using the Itead Stackable SD Card Shield v3.0
+#CONFIG_MEGA_SHIELD_ITEAD_V3=y
+
 CONFIG_SD_AUTO_RETRIES=10
 CONFIG_SD_DATACRC=y
 CONFIG_ERROR_BUFFER_SIZE=100

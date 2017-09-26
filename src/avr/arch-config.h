@@ -1164,6 +1164,13 @@ static inline void sdcard_interface_init(void)
 	PORTE or_eq _BV(PE3);
 	DDRE or_eq _BV(PE3);
 #endif
+
+/* Itead SD shield v3 uses D4 (PG5) for SS pin */
+#ifdef CONFIG_MEGA_SHIELD_ITEAD_V3
+	/* Chip select (SD1) */
+	PORTG |= _BV(PG5);
+	DDRG |= _BV(PG5);
+#endif
 	// Note: Wrapping SD2 in CONFIG_TWINSD may be a good idea
 #if 0
 	/* Declaration of the interrupt handler for SD card 2 change */
@@ -1204,6 +1211,18 @@ static inline __attribute__((always_inline)) void sdcard_set_ss(uint8_t state)
 		PORTE or_eq _BV(PE3);
 	else
 		PORTE and_eq ~_BV(PE3);
+}
+#endif
+
+/* Itead SD shield v3 uses D4 (PG5) for SS pin */
+#ifdef CONFIG_MEGA_SHIELD_ITEAD_V3
+#define SDCARD_SS_SPECIAL
+static inline __attribute__((always_inline)) void sdcard_set_ss(uint8_t state)
+{
+	if (state)
+		PORTG |= _BV(PG5);
+	else
+		PORTG &= ~_BV(PG5);
 }
 #endif
 
