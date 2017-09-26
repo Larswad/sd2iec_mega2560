@@ -36,222 +36,6 @@
 /* ------------------------------------------------------------------------- */
 /*  data structures, constants, global variables                             */
 /* ------------------------------------------------------------------------- */
-
-typedef struct {
-	uint8_t  sectors[12];            // must be in same position in both name and list
-	uint8_t  name[SFS_NAME_LENGTH];
-	uint16_t size;
-	uint8_t  flags;
-	uint8_t  nextentry;
-} nameentry_t;
-
-typedef struct {
-	uint8_t  sectors[30];
-	uint8_t  flags;
-	uint8_t  nextentry;
-} listentry_t;
-
-_Static_assert(sizeof(nameentry_t) == sizeof(listentry_t),
-							 "nameentry and listentry sizes must match");
-_Static_assert(offsetof(nameentry_t, sectors) == offsetof(listentry_t, sectors),
-							 "sector list must start at same offset in both structs");
-
-#define DATA_OFFSET  (EEPROMFS_OFFSET + EEPROMFS_ENTRIES * sizeof(nameentry_t))
-#define SECTOR_COUNT ((EEPROMFS_SIZE - EEPROMFS_ENTRIES * sizeof(nameentry_t)) / EEPROMFS_SECTORSIZE)
-
-_Static_assert(SECTOR_COUNT < 256,     "eepromfs must have less than 256 sectors");
-_Static_assert(EEPROMFS_ENTRIES < 256, "eepromfs must have less than 256 directory entries");
-
-/* ------------------------------------------------------------------------- */
-/*  Utility functions                                                        */
-/* ------------------------------------------------------------------------- */
-
-/**
- * read_entry - read a directory entry
- * @index: index of the directory entry
- *
- * This function reads the directory entry @index
- * from the EEPROM into the buffer.
- */
-static void read_entry(uint8_t index) {
-	eeprom_read_block(EEPROMFS_BUFFER,
-										(uint8_t *)(EEPROMFS_OFFSET + sizeof(nameentry_t) * index),
-										sizeof(nameentry_t));
-}
-
-/**
- * write_entry - write a directory entry
- * @index: index of the directory entry
- *
- * This function writes the directory entry @index
- * from the buffer into the EEPROM.
- */
-static void write_entry(uint8_t index) {
-#ifdef EEPROMFS_MINIMIZE_WRITES
-	/* write just the changed bytes to the EEPROM */
-
-	uint8_t *orig = EEPROMFS_CMP_BUFFER;
-	uint8_t i, nonmatch_start;
-	bool cur_nonmatching = false;
-
-	/* read current entry to minimize writes */
-	eeprom_read_block(orig,
-										(uint8_t *)(EEPROMFS_OFFSET + sizeof(nameentry_t) * index),
-										sizeof(nameentry_t));
-
-	for (i = 0; i < sizeof(nameentry_t); i++) {
-		if (cur_nonmatching) {
-			if (EEPROMFS_BUFFER[i] == orig[i]) {
-				cur_nonmatching = false;
-
-				eeprom_write_block(EEPROMFS_BUFFER + nonmatch_start,
-														 (uint8_t *)(EEPROMFS_OFFSET + sizeof(nameentry_t) * index + nonmatch_start),
-														 i - nonmatch_start);
-			}
-		} else {
-			if (EEPROMFS_BUFFER[i] != orig[i]) {
-				cur_nonmatching = true;
-				nonmatch_start  = i;
-			}
-		}
-	}
-
-	if (cur_nonmatching) {
-		/* final block */
-		eeprom_write_block(EEPROMFS_BUFFER + nonmatch_start,
-											 (uint8_t *)(EEPROMFS_OFFSET + sizeof(nameentry_t) * index + nonmatch_start),
-											 sizeof(nameentry_t) - nonmatch_start);
-	}
-
-#else
-	/* write everything */
-	eeprom_write_block(EEPROMFS_BUFFER,
-										 (uint8_t *)(EEPROMFS_OFFSET + sizeof(nameentry_t) * index),
-										 sizeof(nameentry_t));
-#endif
-}
-
-/**
- * curentry_is_listentry - checks if the current entry is a listentry
- *
- * This function checks if the entry currently in the buffer is
- * a listentry. Returns true if yes, false if not.
- */
-static bool curentry_is_listentry(void) {
-	if (listptr->flags & EEFS_FLAG_LISTENTRY)
-		return true;
-	else
-		return false;
-}
-
-/**
- * curentry_max_sectors - returns the maximum number of sectors storable in the current entry
- *
- * This function returns the maximum number of sector numbers
- * that can be stored in the direntry currently in the buffer.
- */
-static uint8_t curentry_max_sectors(void) {
-	if (curentry_is_listentry())
-		return sizeof(listptr->sectors);
-	else
-		return sizeof(nameptr->sectors);
-}
-
-/**
- * mark_sector - mark a sector as free/used
- * @sector: number of the sector to mark
- * @used  : mark as used (true) or free (false)
- *
- * This function marks the sector @sector as used or
- * free depending on @used and updates the free_sectors
- * counter. Assumes that it will always be used to
- * flip the state of a sector.
- */
-static void mark_sector(uint8_t sector, bool used) {
-	assert(get_bit(used_sectors, sector) != used);
-
-	set_bit(used_sectors, sector, used);
-	if (used)
-		free_sectors--;
-	else
-		free_sectors++;
-}
-
-/**
- * next_free_sector - find the next free sector
- * @start: sector to start the search at
- *
- * This function searches for the next free sector, starting
- * at @start (to allow some small amount of wear-levelling).
- * Returns a sector number or SECTOR_FREE if none is available.
- */
-static uint8_t next_free_sector(uint8_t start) {
-	uint8_t cur = start;
-
-	while (get_bit(used_sectors, cur)) {
-		cur++;
-		if (cur == SECTOR_COUNT)
-			cur = 0;
-
-		if (cur == start)
-			return SECTOR_FREE;
-	}
-
-	return cur;
-}
-
-/**
- * find_entry - find a directory entry by name
- * @name: pointer to file name array
- *
- * This function searches for a directory entry with the file
- * name @name. All characters of the name must be a binary match.
- * Returns the index of the entry or 0xff if not found.
- */
-static uint8_t find_entry(uint8_t *name) {
-	uint8_t idx = 0;
-
-	while (idx < EEPROMFS_ENTRIES) {
-		read_entry(idx++);
-
-		if (nameptr->flags & (EEFS_FLAG_DELETED | EEFS_FLAG_LISTENTRY))
-			continue;
-
-		if (!memcmp(nameptr->name, name, EEFS_NAME_LENGTH))
-			return idx - 1;
-	}
-
-	return 0xff;
-}
-
-/**
- * next_free_entry - find an empty directory entry
- * @start: entry to start search at
- *
- * This function searches for an empty directory entry, starting at entry
- * @start to provide a simple wear-levelling mechanism. The entry is NOT
- * marked as used. Returns the index of the entry or 0xff if none available
- * and marks it as used in used_entries.
- */
-static uint8_t next_free_entry(uint8_t start) {
-	uint8_t cur = start;
-
-	while (get_bit(used_entries, cur)) {
-		cur++;
-		if (cur == EEPROMFS_ENTRIES)
-			cur = 0;
-
-		if (cur == start)
-			return 0xff;
-	}
-
-	set_bit(used_entries, cur, true);
-
-	return cur;
-}
-
-// UART handling.
-
 #define CLOCK_PRESCALE_FACTOR 1
 static uint8_t txbuf[1 << CONFIG_UART_BUF_SHIFT];
 static volatile uint16_t uartReadIx;
@@ -303,6 +87,13 @@ typedef struct tagSFSDGram {
 	} U;
 } SFSDGramT;
 
+
+
+/* ------------------------------------------------------------------------- */
+/*  Utility functions                                                        */
+/* ------------------------------------------------------------------------- */
+
+// UART handling.
 
 ISR(SFS_USART_UDRE_vect)
 {
@@ -407,6 +198,7 @@ static SFSDGramT* sfsRequest(SFSDGramT* req, uint8_t timeout)
 	// TODO: some checksumming for outgoing?
 
 	uartWriteBuf((uint8_t*)req, req->Header.length);
+	uartFlush();
 	if(0 == timeout)
 		return NULL;
 
@@ -443,6 +235,8 @@ static SFSDGramT* sfsReqDGram(uint8_t type, uint8_t size)
 	s_outDGram.Header.length = size + sizeof(s_outDGram.Header);
 	return &s_outDGram;
 }
+
+
 /* ------------------------------------------------------------------------- */
 /*  external API                                                             */
 /* ------------------------------------------------------------------------- */
@@ -454,18 +248,15 @@ bool serialfs_init(void)
 	return NULL not_eq resp and miHandshakeCfm == resp->Header.type;
 }
 
-uint8_t serialfs_free_sectors(void)
-{
-	return free_sectors;
-}
 
 void serialfs_opendir(sfs_dir_t *dh)
 {
-	dh->entry = 0;
+	VAR_UNUSED(dh);
+//	dh->entry = 0;
 }
 
 /**
- * eepromfs_readdir - read a directory entry
+ * serialfs_readdir - read a directory entry
  * @dh   : pointer to directory handle
  * @entry: pointer to dirent structore for the result
  *
@@ -476,6 +267,9 @@ void serialfs_opendir(sfs_dir_t *dh)
  */
 uint8_t serialfs_readdir(sfs_dir_t *dh, sfs_dirent_t *entry)
 {
+	VAR_UNUSED(dh);
+	VAR_UNUSED(entry);
+#if 0
 	/* loop until a valid new entry is found */
 	while (dh->entry < EEPROMFS_ENTRIES) {
 		/* read current entry */
@@ -487,18 +281,19 @@ uint8_t serialfs_readdir(sfs_dir_t *dh, sfs_dirent_t *entry)
 		if (curentry_is_listentry())
 			continue;
 
-		/* copy information */
+		// copy information
 		memcpy(entry->name, nameptr->name, EEFS_NAME_LENGTH);
 		entry->flags = nameptr->flags;
 		entry->size  = nameptr->size;
 		return 0;
 	}
+#endif
 
 	return 1;
 }
 
 /**
- * eepromfs_open - open a file
+ * serialfs_open - open a file
  * @name : pointer to file name
  * @fh   : pointer to file handle
  * @flags: access flags
@@ -508,8 +303,12 @@ uint8_t serialfs_readdir(sfs_dir_t *dh, sfs_dirent_t *entry)
  * can be a read, write or append-access. Returns zero if successful,
  * non-zero if not.
  */
-sfs_error_t serialfs_open(uint8_t *name, sfs_fh_t *fh, uint8_t flags)
+sfs_error_t serialfs_open(uint8_t* name, sfs_fh_t* fh, uint8_t flags)
 {
+	VAR_UNUSED(name);
+	VAR_UNUSED(fh);
+	VAR_UNUSED(flags);
+#if 0
 	uint8_t diridx;
 
 	memset(fh, 0, sizeof(eefs_fh_t));
@@ -574,12 +373,12 @@ sfs_error_t serialfs_open(uint8_t *name, sfs_fh_t *fh, uint8_t flags)
 			fh->filemode   = EEFS_MODE_READ;
 		}
 	} // non-write
-
+#endif
 	return SFS_ERROR_OK;
 }
 
 /**
- * eepromfs_write - write to a file
+ * serialfs_write - write to a file
  * @fh           : pointer to file handle
  * @data         : pointer to data to be written
  * @length       : number of bytes to write
@@ -587,11 +386,16 @@ sfs_error_t serialfs_open(uint8_t *name, sfs_fh_t *fh, uint8_t flags)
  *
  * This function writes @length bytes from @data to the file opened on @fh.
  * The actual number of bytes written to the file is stored in
- * @bytes_written. Returns an eepromfs error code depending on the
+ * @bytes_written. Returns an serialfs error code depending on the
  * result.
  */
 sfs_error_t serialfs_write(sfs_fh_t *fh, void *data, uint16_t length, uint16_t *bytes_written)
 {
+	VAR_UNUSED(fh);
+	VAR_UNUSED(data);
+	VAR_UNUSED(length);
+	VAR_UNUSED(bytes_written);
+#if 0
 	uint8_t *bdata = data;
 
 	if (fh->filemode != EEFS_MODE_WRITE)
@@ -653,8 +457,8 @@ sfs_error_t serialfs_write(sfs_fh_t *fh, void *data, uint16_t length, uint16_t *
 		length          -= bytes_to_write;
 		*bytes_written  += bytes_to_write;
 	}
-
-	return EEFS_ERROR_OK;
+#endif
+	return SFS_ERROR_OK;
 }
 
 /**
@@ -666,11 +470,16 @@ sfs_error_t serialfs_write(sfs_fh_t *fh, void *data, uint16_t length, uint16_t *
  *
  * This function writes @length bytes from @data to the file opened on @fh.
  * The actual number of bytes written to the file is stored in
- * @bytes_written. Returns an eepromfs error code depending on the
+ * @bytes_written. Returns an serialfs error code depending on the
  * result.
  */
 sfs_error_t serialfs_read(sfs_fh_t *fh, void *data, uint16_t length, uint16_t *bytes_read)
 {
+	VAR_UNUSED(fh);
+	VAR_UNUSED(data);
+	VAR_UNUSED(length);
+	VAR_UNUSED(bytes_read);
+#if 0
 	uint8_t *bdata = data;
 
 	if (fh->filemode != EEFS_MODE_READ)
@@ -717,12 +526,12 @@ sfs_error_t serialfs_read(sfs_fh_t *fh, void *data, uint16_t length, uint16_t *b
 			fh->cur_sector = listptr->sectors[fh->cur_sindex];
 		}
 	}
-
-	return EEFS_ERROR_OK;
+#endif
+	return SFS_ERROR_OK;
 }
 
 /**
- * eepromfs_close - close a file
+ * serialfs_close - close a file
  * @fh: handle of the file to close
  *
  * This function closes the file opened on @fh.
@@ -730,6 +539,8 @@ sfs_error_t serialfs_read(sfs_fh_t *fh, void *data, uint16_t length, uint16_t *b
  */
 void serialfs_close(sfs_fh_t *fh)
 {
+	VAR_UNUSED(fh);
+#if 0
 	// FIXME: Read mode check could be removed if write_entry only writes changed bytes (EEPROMFS_MINIMIZE_WRITES)
 	if (fh->filemode != EEFS_MODE_READ) {
 		/* write new file length */
@@ -738,18 +549,22 @@ void serialfs_close(sfs_fh_t *fh)
 		write_entry(fh->entry);
 	}
 	fh->filemode = 0;
+#endif
 }
 
 /**
- * eepromfs_rename - rename a file
+ * serialfs_rename - rename a file
  * @oldname: current file name
  * @newname: new file name
  *
  * This function renames the file @oldname to @newname.
- * Returns an eepromfs error code depending on the result.
+ * Returns an serialfs error code depending on the result.
  */
 sfs_error_t serialfs_rename(uint8_t *oldname, uint8_t *newname)
 {
+	VAR_UNUSED(oldname);
+	VAR_UNUSED(newname);
+#if 0
 	uint8_t diridx;
 
 	/* check if the new file name already exists */
@@ -767,22 +582,25 @@ sfs_error_t serialfs_rename(uint8_t *oldname, uint8_t *newname)
 	memcpy(nameptr->name, newname, EEFS_NAME_LENGTH);
 
 	write_entry(diridx);
-
+#endif
 	return SFS_ERROR_OK;
 }
 
+
 /**
- * eepromfs_delete - delete a file
+ * serialfs_delete - delete a file
  * @name: name of the file to delete
  *
  * This function deletes the file @name.
- * Returns an eepromfs error code depending on the result.
+ * Returns an serialfs error code depending on the result.
  */
 // FIXME: If this operation is interrupted it could
 // leave a chain of listentries with no nameentry
 // Add a small fsck in init?
 sfs_error_t serialfs_delete(uint8_t *name)
 {
+	VAR_UNUSED(name);
+#if 0
 	uint8_t diridx, old_diridx;
 
 	/* look up the first directory entry */
@@ -791,6 +609,6 @@ sfs_error_t serialfs_delete(uint8_t *name)
 		return SFS_ERROR_FILENOTFOUND;
 
 	// TODO: Implement
-
+#endif
 	return SFS_ERROR_OK;
 }

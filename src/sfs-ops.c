@@ -194,28 +194,6 @@ static uint8_t sfs_refill_write(buffer_t* buf)
 	return 0;
 }
 
-
-/**
- * sfs_cleanup_write - cleanup-callback for writing
- * @buf: target buffer
- *
- * This is the cleanup-callback function for files opened for writing.
- */
-static uint8_t sfs_cleanup_write(buffer_t* buf)
-{
-	if(not buf->allocated)
-		return 0;
-
-	// write remaining data
-	if(buf->refill(buf))
-		return 1;
-
-	serialfs_close(&buf->pvt.sffh);
-	buf->cleanup = callback_dummy;
-	return 0;
-}
-
-
 /* ------------------------------------------------------------------------- */
 /*  fileops-API                                                              */
 /* ------------------------------------------------------------------------- */
@@ -346,8 +324,8 @@ static void sfs_open_read(path_t* path, cbmdirent_t *dent, buffer_t *buf)
 static void sfs_open_write(path_t *path, cbmdirent_t *dent, uint8_t type,
 													 buffer_t *buf, uint8_t append)
 {
+#if 0
 	FRESULT res;
-
 	if (append) {
 		partition[path->part].fatfs.curr_dir = path->dir.fat;
 		res = f_open(&partition[path->part].fatfs, &buf->pvt.fat.fh, dent->pvt.fat.realname, FA_WRITE | FA_OPEN_EXISTING);
@@ -364,6 +342,7 @@ static void sfs_open_write(path_t *path, cbmdirent_t *dent, uint8_t type,
 		parse_error(res,0);
 		return;
 	}
+#endif
 
 	mark_write_buffer(buf);
 	buf->position  = 2;
