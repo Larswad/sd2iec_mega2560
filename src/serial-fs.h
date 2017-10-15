@@ -65,14 +65,14 @@ typedef struct {
 } sfs_fh_t;
 
 bool serialfs_init(void);
-void         serialfs_format(void);
-uint8_t      serialfs_free_sectors(void);
-void         serialfs_opendir(sfs_dir_t *dh);
-uint8_t      serialfs_readdir(sfs_dir_t *dh, sfs_dirent_t *entry);
+void serialfs_format(void);
+uint8_t serialfs_free_sectors(void);
+void serialfs_opendir(sfs_dir_t *dh);
+uint8_t serialfs_readdir(sfs_dir_t *dh, sfs_dirent_t *entry);
 sfs_error_t serialfs_open(uint8_t *name, sfs_fh_t *fh, uint8_t flags);
 sfs_error_t serialfs_write(sfs_fh_t *fh, void *data, uint16_t length, uint16_t *bytes_written);
 sfs_error_t serialfs_read(sfs_fh_t *fh, void *data, uint16_t length, uint16_t *bytes_read);
-void         serialfs_close(sfs_fh_t *fh);
+void serialfs_close(sfs_fh_t *fh);
 sfs_error_t serialfs_rename(uint8_t *oldname, uint8_t *newname);
 sfs_error_t serialfs_delete(uint8_t *name);
 

@@ -90,6 +90,11 @@ static inline void board_init(void)
 #  endif
 #endif
 
+#if defined(CONFIG_HAVE_SERIALFS)
+// the host will provide the sd2iec client with it's own system time upon connect.
+#define CONFIG_RTC_SOFTWARE y
+#endif
+
 /* ----- Translate CONFIG_RTC_* symbols to HAVE_RTC symbol ----- */
 #if defined(CONFIG_RTC_SOFTWARE) || \
 		defined(CONFIG_RTC_PCF8583)  || \
@@ -98,7 +103,7 @@ static inline void board_init(void)
 #  define HAVE_RTC
 
 /* calculate the number of enabled RTCs */
-#  if defined(CONFIG_RTC_SOFTWARE) + \
+#  if defined(CONFIG_RTC_SOFTWARE) || \
 			defined(CONFIG_RTC_PCF8583)  + \
 			defined(CONFIG_RTC_LPC17XX)  + \
 			defined(CONFIG_RTC_DSRTC)  > 1

@@ -31,7 +31,9 @@
 #include <string.h>
 #include "buffers.h"
 #include "serial-fs.h"
+#include "softrtc.h"
 #include "timer.h"
+#include "uart.h"
 
 /* ------------------------------------------------------------------------- */
 /*  data structures, constants, global variables                             */
@@ -41,8 +43,8 @@ static uint8_t txbuf[1 << CONFIG_UART_BUF_SHIFT];
 static volatile uint16_t uartReadIx;
 static volatile uint16_t uartWriteIx;
 
-#define DGRAM_MAGIC0 0x56
-#define DGRAM_MAGIC1 0x51
+#define DGRAM_MAGIC0 'S'
+#define DGRAM_MAGIC1 'F'
 
 typedef enum {
 	miHandshakeReq,
@@ -68,7 +70,9 @@ typedef struct tagSFSDGram {
 	} Header;
 	union {
 		struct {
+			struct tm tm;
 			uint8_t numPartitions;
+			uint8_t pad0;
 		} HandshakeCfm;
 		struct {
 			uint8_t name[1];			// name of file to open.
@@ -100,7 +104,7 @@ ISR(SFS_USART_UDRE_vect)
 	if(uartReadIx == uartWriteIx)
 		return;
 
-	UDR = txbuf[uartReadIx];
+	SFS_UDR = txbuf[uartReadIx];
 	uartReadIx = (uartReadIx + 1) bitand (sizeof(txbuf) - 1);
 	if(uartReadIx == uartWriteIx)
 		SFS_UCSRB and_eq compl _BV(SFS_UDRIE);
@@ -175,12 +179,12 @@ static void uartInit(void)
 	uint16_t baudSetting = (clock / 4 / CONFIG_UART_BAUDRATE - 1) / 2;
 	SFS_UBRRH = baudSetting >> 8;
 	SFS_UBRRL = baudSetting bitand 0xff;
-	SFS_UCSRA = _BV(U2X0);
+	SFS_UCSRA = _BV(U2X2);
 
 	SFS_UCSRB = _BV(SFS_RXEN) | _BV(SFS_TXEN);
 	// I really don't like random #ifdefs in the code =(
 #if defined __AVR_ATmega32__
-	SFS_UCSRC = _BV(URSEL) | _BV(UCSZ1) | _BV(UCSZ0);
+	SFS_UCSRC = _BV(SFS_URSEL) | _BV(SFS_UCSZ1) | _BV(SFS_UCSZ0);
 #else
 	SFS_UCSRC = _BV(SFS_UCSZ1) | _BV(SFS_UCSZ0);
 #endif
@@ -193,11 +197,16 @@ static void uartInit(void)
 }
 
 // The timeout is given in multiples of 10 ms (0 = don't wait for answer, means null is always returned).
-static SFSDGramT* sfsRequest(SFSDGramT* req, uint8_t timeout)
+// if the alternateSource pointer is given, the written data (payload) will be transferred from separate memory location.
+// if the alternateDest pointer is given, the read answer (payload) will be placed in that separate memory location.
+static SFSDGramT* intSFSRequest(SFSDGramT* req, uint8_t timeout, uint8_t* alternateSource, uint8_t* alternateDest)
 {
-	// TODO: some checksumming for outgoing?
+	// TODO: We have cpu-time for some checksumming of outgoing?
 
-	uartWriteBuf((uint8_t*)req, req->Header.length);
+	uartWriteBuf((uint8_t*)req, alternateSource ? sizeof(req->Header) : req->Header.length);
+	uartFlush();
+	if(alternateSource)
+		uartWriteBuf(alternateSource, req->Header.length - sizeof(req->Header));
 	uartFlush();
 	if(0 == timeout)
 		return NULL;
@@ -220,13 +229,29 @@ static SFSDGramT* sfsRequest(SFSDGramT* req, uint8_t timeout)
 
 	if(req->Header.length > sizeof(req->Header.length)) {
 		// read rest of message.
-		if(not uartReadBuf((uint8_t*)(&s_inDGram.U), req->Header.length - sizeof(req->Header), timeout))
+		if(not uartReadBuf(alternateDest ? alternateDest : (uint8_t*)(&s_inDGram.U), req->Header.length - sizeof(req->Header), timeout))
 			return NULL; // timeout
 	}
 
-	// TODO: some incoming checksum check?
+	// TODO: We have time for some incoming checksum check?
 
 	return &s_inDGram;
+}
+
+inline static SFSDGramT* sfsRequest(SFSDGramT* req, uint8_t timeout)
+{
+	return intSFSRequest(req, timeout, NULL, NULL);
+}
+
+inline static SFSDGramT* sfsRequestSourcePtr(SFSDGramT* req, uint8_t timeout, uint8_t* dataPtr)
+{
+	return intSFSRequest(req, timeout, dataPtr, NULL);
+}
+
+
+inline static SFSDGramT* sfsRequestDestPtr(SFSDGramT* req, uint8_t timeout, uint8_t* dataPtr)
+{
+	return intSFSRequest(req, timeout, NULL, dataPtr);
 }
 
 static SFSDGramT* sfsReqDGram(uint8_t type, uint8_t size)
@@ -243,15 +268,25 @@ static SFSDGramT* sfsReqDGram(uint8_t type, uint8_t size)
 
 bool serialfs_init(void)
 {
+	uart_puts_P(PSTR("entry: serialfs_init\n"));
 	uartInit();
+
 	SFSDGramT* resp = sfsRequest(sfsReqDGram(miHandshakeReq, 0), HZ / 2);
-	return NULL not_eq resp and miHandshakeCfm == resp->Header.type;
+	if(NULL not_eq resp and miHandshakeCfm == resp->Header.type) {
+		// we sync our clock to the host time.
+		softrtc_set(&resp->U.HandshakeCfm.tm);
+		uart_puts_P(PSTR("exit: serialfs_init_success\n"));
+		return true;
+	}
+	uart_puts_P(PSTR("exit: serialfs_init_fail\n"));
+	return false;
 }
 
 
 void serialfs_opendir(sfs_dir_t *dh)
 {
 	VAR_UNUSED(dh);
+	uart_puts_P(PSTR("entry: serialfs_opendir"));
 //	dh->entry = 0;
 }
 
@@ -267,6 +302,7 @@ void serialfs_opendir(sfs_dir_t *dh)
  */
 uint8_t serialfs_readdir(sfs_dir_t *dh, sfs_dirent_t *entry)
 {
+	uart_puts_P(PSTR("entry: serialfs_readdir"));
 	VAR_UNUSED(dh);
 	VAR_UNUSED(entry);
 #if 0
@@ -305,6 +341,7 @@ uint8_t serialfs_readdir(sfs_dir_t *dh, sfs_dirent_t *entry)
  */
 sfs_error_t serialfs_open(uint8_t* name, sfs_fh_t* fh, uint8_t flags)
 {
+	uart_puts_P(PSTR("entry: serialfs_open"));
 	VAR_UNUSED(name);
 	VAR_UNUSED(fh);
 	VAR_UNUSED(flags);
@@ -391,6 +428,7 @@ sfs_error_t serialfs_open(uint8_t* name, sfs_fh_t* fh, uint8_t flags)
  */
 sfs_error_t serialfs_write(sfs_fh_t *fh, void *data, uint16_t length, uint16_t *bytes_written)
 {
+	uart_puts_P(PSTR("entry: serialfs_write"));
 	VAR_UNUSED(fh);
 	VAR_UNUSED(data);
 	VAR_UNUSED(length);
@@ -475,6 +513,7 @@ sfs_error_t serialfs_write(sfs_fh_t *fh, void *data, uint16_t length, uint16_t *
  */
 sfs_error_t serialfs_read(sfs_fh_t *fh, void *data, uint16_t length, uint16_t *bytes_read)
 {
+	uart_puts_P(PSTR("entry: serialfs_read"));
 	VAR_UNUSED(fh);
 	VAR_UNUSED(data);
 	VAR_UNUSED(length);
@@ -539,6 +578,7 @@ sfs_error_t serialfs_read(sfs_fh_t *fh, void *data, uint16_t length, uint16_t *b
  */
 void serialfs_close(sfs_fh_t *fh)
 {
+	uart_puts_P(PSTR("entry: serialfs_close"));
 	VAR_UNUSED(fh);
 #if 0
 	// FIXME: Read mode check could be removed if write_entry only writes changed bytes (EEPROMFS_MINIMIZE_WRITES)
@@ -560,8 +600,9 @@ void serialfs_close(sfs_fh_t *fh)
  * This function renames the file @oldname to @newname.
  * Returns an serialfs error code depending on the result.
  */
-sfs_error_t serialfs_rename(uint8_t *oldname, uint8_t *newname)
+sfs_error_t serialfs_rename(uint8_t* oldname, uint8_t* newname)
 {
+	uart_puts_P(PSTR("entry: serialfs_rename"));
 	VAR_UNUSED(oldname);
 	VAR_UNUSED(newname);
 #if 0
@@ -594,11 +635,9 @@ sfs_error_t serialfs_rename(uint8_t *oldname, uint8_t *newname)
  * This function deletes the file @name.
  * Returns an serialfs error code depending on the result.
  */
-// FIXME: If this operation is interrupted it could
-// leave a chain of listentries with no nameentry
-// Add a small fsck in init?
-sfs_error_t serialfs_delete(uint8_t *name)
+sfs_error_t serialfs_delete(uint8_t* name)
 {
+	uart_puts_P(PSTR("entry: serialfs_delete"));
 	VAR_UNUSED(name);
 #if 0
 	uint8_t diridx, old_diridx;

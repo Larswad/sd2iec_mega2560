@@ -101,6 +101,7 @@ static void translate_error(sfs_error_t res)
  */
 static uint8_t sfs_refill_read(buffer_t* buf)
 {
+	uart_puts_P(PSTR("entry: sfs_refill_read"));
 	sfs_error_t res;
 	uint16_t bytes_read;
 
@@ -133,6 +134,7 @@ static uint8_t sfs_refill_read(buffer_t* buf)
  */
 static uint8_t sfs_refill_write(buffer_t* buf)
 {
+	uart_puts_P(PSTR("entry: sfs_refill_write"));
 	VAR_UNUSED(buf);
 	/*
 	FRESULT res = FR_OK;
@@ -200,6 +202,7 @@ static uint8_t sfs_refill_write(buffer_t* buf)
 
 void sfsops_init(void)
 {
+	uart_puts_P(PSTR("entry: sfsops_init\n"));
 	sfs_partition = 255;
 
 	// do not add if all partitions are already in use
@@ -228,6 +231,7 @@ void sfsops_init(void)
  */
 uint8_t sfs_file_seek(buffer_t *buf, uint32_t position, uint8_t index)
 {
+	uart_puts_P(PSTR("entry: sfs_file_seek"));
 	VAR_UNUSED(buf);
 	VAR_UNUSED(position);
 	VAR_UNUSED(index);
@@ -275,6 +279,7 @@ uint8_t sfs_file_seek(buffer_t *buf, uint32_t position, uint8_t index)
  */
 static uint8_t sfs_file_close(buffer_t *buf)
 {
+	uart_puts_P(PSTR("entry: sfs_file_close"));
 	FRESULT res;
 
 	if(!buf->allocated)
@@ -300,6 +305,7 @@ static uint8_t sfs_file_close(buffer_t *buf)
 
 static void sfs_open_read(path_t* path, cbmdirent_t *dent, buffer_t *buf)
 {
+	uart_puts_P(PSTR("entry: sfs_open_read"));
 	VAR_UNUSED(path);
 
 	repad_filename(dent->name);
@@ -324,6 +330,7 @@ static void sfs_open_read(path_t* path, cbmdirent_t *dent, buffer_t *buf)
 static void sfs_open_write(path_t *path, cbmdirent_t *dent, uint8_t type,
 													 buffer_t *buf, uint8_t append)
 {
+	uart_puts_P(PSTR("entry: sfs_open_write"));
 #if 0
 	FRESULT res;
 	if (append) {
@@ -357,6 +364,7 @@ static void sfs_open_write(path_t *path, cbmdirent_t *dent, uint8_t type,
 
 static void sfs_open_rel(path_t* path, cbmdirent_t* dent, buffer_t* buf,
 												 uint8_t recordlen, uint8_t mode) {
+	uart_puts_P(PSTR("entry: sfs_open_rel"));
 	VAR_UNUSED(path);
 	VAR_UNUSED(dent);
 	VAR_UNUSED(recordlen);
@@ -367,6 +375,7 @@ static void sfs_open_rel(path_t* path, cbmdirent_t* dent, buffer_t* buf,
 
 static uint8_t sfs_delete(path_t* path, cbmdirent_t* dent)
 {
+	uart_puts_P(PSTR("entry: sfs_delete"));
 	VAR_UNUSED(path);
 	VAR_UNUSED(dent);
 //	FRESULT res;
@@ -398,6 +407,7 @@ static uint8_t sfs_delete(path_t* path, cbmdirent_t* dent)
 
 static uint8_t sfs_disk_label(uint8_t part, uint8_t* label)
 {
+	uart_puts_P(PSTR("entry: sfs_disk_label"));
 	VAR_UNUSED(part);
 	// copy with zero-termination
 	memcpy_P(label, s_diskLabel, 17);
@@ -406,6 +416,7 @@ static uint8_t sfs_disk_label(uint8_t part, uint8_t* label)
 
 static uint8_t sfs_dir_label(path_t* path, uint8_t* label)
 {
+	uart_puts_P(PSTR("entry: sfs_dir_label"));
 	VAR_UNUSED(path);
 	// copy without zero-termination
 	memcpy_P(label, s_diskLabel, 16);
@@ -414,6 +425,7 @@ static uint8_t sfs_dir_label(path_t* path, uint8_t* label)
 
 static uint8_t sfs_disk_id(path_t* path, uint8_t* id)
 {
+	uart_puts_P(PSTR("entry: sfs_disk_id"));
 	VAR_UNUSED(path);
 	memcpy_P(id, s_diskId, 5);
 	return 0;
@@ -423,6 +435,7 @@ static uint8_t sfs_disk_id(path_t* path, uint8_t* id)
 
 static uint16_t sfs_disk_free(uint8_t part)
 {
+	uart_puts_P(PSTR("entry: sfs_disk_free"));
 	VAR_UNUSED(part);
 	// This is a meaningless operation since the host will have almost unlimited storage for this purpose.
 	// converted to 256-byte-blocks as a rough CBM block approximation
@@ -431,6 +444,7 @@ static uint16_t sfs_disk_free(uint8_t part)
 
 static void sfs_read_sector(buffer_t* buf, uint8_t part, uint8_t track, uint8_t sector)
 {
+	uart_puts_P(PSTR("entry: sfs_read_sector"));
 	VAR_UNUSED(buf);
 	VAR_UNUSED(part);
 	set_error_ts(ERROR_READ_NOHEADER, track, sector);
@@ -438,6 +452,7 @@ static void sfs_read_sector(buffer_t* buf, uint8_t part, uint8_t track, uint8_t 
 
 static void sfs_write_sector(buffer_t *buf, uint8_t part, uint8_t track, uint8_t sector)
 {
+	uart_puts_P(PSTR("entry: sfs_write_sector"));
 	VAR_UNUSED(buf);
 	VAR_UNUSED(part);
 	set_error_ts(ERROR_READ_NOHEADER, track, sector);
@@ -446,6 +461,7 @@ static void sfs_write_sector(buffer_t *buf, uint8_t part, uint8_t track, uint8_t
 // Dummy function for format, we don't allow it.
 static void sfs_format(uint8_t drv, uint8_t *name, uint8_t *id)
 {
+	uart_puts_P(PSTR("entry: sfs_format"));
 	VAR_UNUSED(drv);
 	VAR_UNUSED(name);
 	VAR_UNUSED(id);
@@ -454,6 +470,7 @@ static void sfs_format(uint8_t drv, uint8_t *name, uint8_t *id)
 
 static uint8_t sfs_opendir(dh_t* dh, path_t* path)
 {
+	uart_puts_P(PSTR("entry: sfs_opendir"));
 	dh->part = path->part;
 	eepromfs_opendir(&dh->dir.eefs);
 	return 0;
@@ -462,6 +479,7 @@ static uint8_t sfs_opendir(dh_t* dh, path_t* path)
 
 static int8_t sfs_readdir(dh_t *dh, cbmdirent_t *dent)
 {
+	uart_puts_P(PSTR("entry: sfs_readdir"));
 	sfs_dirent_t sfsdent;
 	uint8_t       res;
 
@@ -496,6 +514,7 @@ static int8_t sfs_readdir(dh_t *dh, cbmdirent_t *dent)
  */
 static uint8_t sfs_chdir(path_t* path, cbmdirent_t* dent)
 {
+	uart_puts_P(PSTR("entry: sfs_chdir"));
 	VAR_UNUSED(path);
 	VAR_UNUSED(dent);
 	return 0;
@@ -503,6 +522,7 @@ static uint8_t sfs_chdir(path_t* path, cbmdirent_t* dent)
 
 static void sfs_rename(path_t* path, cbmdirent_t* oldname, uint8_t* newname)
 {
+	uart_puts_P(PSTR("entry: sfs_rename"));
 	VAR_UNUSED(path);
 	sfs_error_t res;
 
@@ -515,6 +535,7 @@ static void sfs_rename(path_t* path, cbmdirent_t* oldname, uint8_t* newname)
 
 static void sfs_mkdir(path_t* path, uint8_t* dirname)
 {
+	uart_puts_P(PSTR("entry: sfs_mkdir"));
 	VAR_UNUSED(path);
 	VAR_UNUSED(dirname);
 	set_error(ERROR_SYNTAX_UNABLE);

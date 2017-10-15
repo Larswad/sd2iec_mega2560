@@ -71,22 +71,22 @@
 #    define USART_RX_vect   USART0_RX_vect
 
 #ifdef CONFIG_HAVE_SERIALFS
-#    define SFS_RXC   RXC1
-#    define SFS_RXEN  RXEN1
-#    define SFS_TXC   TXC1
-#    define SFS_TXEN  TXEN1
-#    define SFS_UBRRH UBRR1H
-#    define SFS_UBRRL UBRR1L
-#    define SFS_UCSRA UCSR1A
-#    define SFS_UCSRB UCSR1B
-#    define SFS_UCSRC UCSR1C
-#    define SFS_UCSZ0 UCSZ10
-#    define SFS_UCSZ1 UCSZ11
-#    define SFS_UDR   UDR1
-#    define SFS_UDRIE UDRIE1
-#    define SFS_RXCIE RXCIE1
-#    define SFS_USART_UDRE_vect USART1_UDRE_vect
-#    define SFS_USART_RX_vect   USART1_RX_vect
+#    define SFS_RXC   RXC2
+#    define SFS_RXEN  RXEN2
+#    define SFS_TXC   TXC2
+#    define SFS_TXEN  TXEN2
+#    define SFS_UBRRH UBRR2H
+#    define SFS_UBRRL UBRR2L
+#    define SFS_UCSRA UCSR2A
+#    define SFS_UCSRB UCSR2B
+#    define SFS_UCSRC UCSR2C
+#    define SFS_UCSZ0 UCSZ20
+#    define SFS_UCSZ1 UCSZ21
+#    define SFS_UDR   UDR2
+#    define SFS_UDRIE UDRIE2
+#    define SFS_RXCIE RXCIE2
+#    define SFS_USART_UDRE_vect USART2_UDRE_vect
+#    define SFS_USART_RX_vect   USART2_RX_vect
 
 #endif
 #  endif

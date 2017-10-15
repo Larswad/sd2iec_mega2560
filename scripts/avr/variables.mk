@@ -7,6 +7,10 @@ ifeq ($(CONFIG_HAVE_IEC),y)
 	ASMSRC += avr/fastloader-ll.S
 endif
 
+ifeq ($(CONFIG_HAVE_SERIALFS),y)
+	SRC += rtc.c avr/softrtc.c
+endif
+
 ifdef NEED_I2C
 	SRC += avr/softi2c.c
 endif
