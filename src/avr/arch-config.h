@@ -1297,18 +1297,18 @@ static inline void leds_init(void)
 	//       instruction shorter than "DDRB |= _BV(PB6) | _BV(PB7);"
 	DDRB or_eq _BV(PB7);
 	// OPTIONAL: Implement a second led (RED one!).
-	//DDRH |= _BV(PH3);
+	DDRH |= _BV(PH3);
 }
 
 // --- "BUSY" led, recommended color: green (usage similiar to 1541 LED) ---
 static inline __attribute__((always_inline)) void set_busy_led(uint8_t state)
 {
 	// OPTIONAL: Attach and implement a green led for BUSY.
-	VAR_UNUSED(state);
-//	if (state)
-//		PORTH and_eq ~_BV(PH3);
-//	else
-//		PORTH or_eq _BV(PH3);
+//	VAR_UNUSED(state);
+	if (state)
+		PORTH and_eq ~_BV(PH3);
+	else
+		PORTH or_eq _BV(PH3);
 }
 
 // --- "DIRTY" led, recommended color: red (errors, unwritten data in memory) ---
