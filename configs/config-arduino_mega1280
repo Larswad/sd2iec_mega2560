@@ -1,0 +1,90 @@
+# This may not look like it, but it's a -*- makefile -*-
+#
+# sd2iec - SD/MMC to Commodore serial bus interface/controller
+# Copyright (C) 2007-2014  Ingo Korb <ingo@akana.de>
+#
+#  Inspired by MMC2IEC by Lars Pontoppidan et al.
+#
+#  FAT filesystem access based on code from ChaN, see tff.c|h.
+#
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; version 2 of the License only.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software
+#  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+# config-arduino_mega2560: sd2iec configuration for Arduino MEGA2560 (AVR) board or compatible clone.
+#
+#
+# This file is included in the main sd2iec Makefile and also parsed
+# into autoconf.h.
+
+CONFIG_ARCH=avr
+CONFIG_MCU=atmega1280
+CONFIG_HARDWARE_VARIANT=10
+CONFIG_HARDWARE_NAME=arduino_mega1280
+CONFIG_LINKER_RELAX=y
+CONFIG_MCU_FREQ=8000000
+
+# We do not provide boot loader. Use the original arduino one, we don't want to mess that up.
+#CONFIG_BOOTLOADER=y
+#CONFIG_BOOT_DEVID=0x5053524c
+
+# Enable UART debugging - requires 24 bytes plus buffer size in RAM
+CONFIG_UART_DEBUG=y
+# Baud rate of the UART, not used if CONFIG_UART_DEBUG is disabled
+CONFIG_UART_BAUDRATE=57600
+# log2 of the UART buffer size, i.e. 6 for 64, 7 for 128, 8 for 256 etc.
+CONFIG_UART_BUF_SHIFT=7
+#CONFIG_DEADLOCK_ME_HARDER=y
+CONFIG_COMMAND_CHANNEL_DUMP=y
+
+# If the on board (external) osciallator deviates from chip to chip (enough to cause a few cycles variance),
+# the turbos must be adapted cycle wise in the fastloader-ii.S implementation.
+# However, this must be TESTED thorougly on several mega's.
+CONFIG_LOADER_TURBODISK=y
+CONFIG_LOADER_FC3=y
+CONFIG_LOADER_DREAMLOAD=n
+CONFIG_LOADER_ULOAD3=y
+CONFIG_LOADER_GIJOE=y
+CONFIG_LOADER_EPYXCART=y
+CONFIG_LOADER_GEOS=y
+CONFIG_LOADER_WHEELS=y
+CONFIG_LOADER_NIPPON=y
+CONFIG_LOADER_AR6=y
+CONFIG_LOADER_ELOAD1=y
+CONFIG_LOADER_MMZAK=y
+CONFIG_LOADER_N0SDOS=y
+
+# Define this to adjust the turbo (loading part) of the arduino mega with a few cycles.
+# This MAY be dependant on crystal individuality.
+CONFIG_MEGA_CYCLE_ADJUST=y
+
+# Define this if using the Itead Stackable SD Card Shield v3.0
+CONFIG_MEGA_SHIELD_ITEAD_V3=y
+
+CONFIG_SD_AUTO_RETRIES=10
+CONFIG_SD_DATACRC=y
+CONFIG_ERROR_BUFFER_SIZE=100
+CONFIG_COMMAND_BUFFER_SIZE=120
+CONFIG_BUFFER_COUNT=6
+CONFIG_MAX_PARTITIONS=2
+# The RTC ise optional, but can be provided as a shield (DS1307 compatible).
+#CONFIG_RTC_DSRTC=y
+#CONFIG_RTC_PCF8583=y
+#CONFIG_REMOTE_DISPLAY=y
+#CONFIG_DISPLAY_BUFFER_SIZE=40
+CONFIG_HAVE_IEC=y
+CONFIG_M2I=y
+
+# There is not room in RAM for a P00CACHE.
+CONFIG_P00CACHE=n
+#CONFIG_P00CACHE_SIZE=12000
+CONFIG_HAVE_EEPROMFS=y
