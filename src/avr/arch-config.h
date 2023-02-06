@@ -1408,6 +1408,7 @@ static inline void buttons_init(void)
 #define SOFTI2C_DDR     DDRC
 #define SOFTI2C_BIT_SCL PC4
 #define SOFTI2C_BIT_SDA PC5
+#define SOFTI2C_BIT_INTRQ PC6
 #define SOFTI2C_DELAY   6
 
 
